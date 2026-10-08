@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teachable Machine 太空侵略者 Space Invaders</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- TensorFlow.js & Teachable Machine Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts: Orbitron & Press Start 2P for Arcade Vibe -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Press+Start+2P&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #0b0c10;
+      color: #c5c6c7;
+      overflow-x: hidden;
+    }
+    
+    .font-arcade {
+      font-family: 'Press Start 2P', monospace;
+    }
+    
+    .font-tech {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    /* Neon Glow Effects */
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(66, 211, 255, 0.4), inset 0 0 15px rgba(66, 211, 255, 0.2);
+      border: 1px solid #45f3ff;
+    }
+    
+    .glow-magenta {
+      box-shadow: 0 0 15px rgba(255, 0, 127, 0.4), inset 0 0 15px rgba(255, 0, 127, 0.2);
+      border: 1px solid #ff007f;
+    }
+
+    .glow-green {
+      box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
+      border: 1px solid #39ff14;
+    }
+
+    .text-glow-cyan {
+      text-shadow: 0 0 8px #45f3ff;
+    }
+
+    .text-glow-magenta {
+      text-shadow: 0 0 8px #ff007f;
+    }
+
+    /* Custom Canvas Styling */
+    #gameCanvas {
+      background: #05050a;
+      background-image: 
+        radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
+        radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px),
+        radial-gradient(white, rgba(255,255,255,.1) 2px, transparent 40px);
+      background-size: 550px 550px, 350px 350px, 250px 250px;
+      background-position: 0 0, 40px 60px, 130px 270px;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 25px rgba(69, 243, 255, 0.2);
+    }
+
+    /* Pulse animations */
+    @keyframes pulse-fast {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.02); }
+    }
+    .animate-pulse-fast {
+      animation: pulse-fast 1.5s infinite ease-in-out;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col justify-between bg-slate-950 text-slate-100">
+
+  <!-- Header / Navigation Bar -->
+  <header class="w-full bg-slate-900/80 border-b border-cyan-500/30 backdrop-blur-md px-6 py-4 flex flex-wrap justify-between items-center z-10">
+    <div class="flex items-center gap-3">
+      <i class="fa-solid fa-gamepad text-cyan-400 text-3xl"></i>
+      <div>
+        <h1 class="font-tech text-xl md:text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-fuchsia-500">
+          TEACHABLE INVADERS
+        </h1>
+        <p class="text-xs text-slate-400">AI 姿勢控制太空侵略者遊戲</p>
+      </div>
+    </div>
+
+    <!-- Live Status Indicators -->
+    <div class="flex items-center gap-4 text-xs font-tech">
+      <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700">
+        <span id="modelStatusDot" class="w-3 h-3 rounded-full bg-amber-500 animate-ping"></span>
+        <span id="modelStatusText" class="text-slate-300">模型準備中...</span>
+      </div>
+      <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700">
+        <i class="fa-solid fa-camera text-cyan-400"></i>
+        <span id="camStatusText" class="text-slate-300">攝影機關閉</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    
+    <!-- LEFT COLUMN: Canvas Game Window (7/12 cols on desktop) -->
+    <section class="lg:col-span-7 flex flex-col items-center justify-center w-full">
+      <div class="relative w-full rounded-2xl p-2 bg-slate-900 border border-slate-800 glow-cyan overflow-hidden">
+        
+        <!-- Game HUD Overlay Top -->
+        <div class="flex justify-between items-center px-4 py-2 bg-slate-950/80 rounded-t-xl font-tech text-sm md:text-base border-b border-slate-800/80">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">SCORE:</span>
+            <span id="scoreDisplay" class="font-arcade text-yellow-400 text-lg">00000</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">LIVES:</span>
+            <div id="livesDisplay" class="flex gap-1 text-cyan-400">
+              <i class="fa-solid fa-shuttle-space"></i>
+              <i class="fa-solid fa-shuttle-space"></i>
+              <i class="fa-solid fa-shuttle-space"></i>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">WAVE:</span>
+            <span id="waveDisplay" class="font-tech text-fuchsia-400 font-bold">1</span>
+          </div>
+        </div>
+
+        <!-- Canvas Game Window -->
+        <div class="relative w-full aspect-[4/3] flex items-center justify-center bg-black rounded-b-xl overflow-hidden">
+          <canvas id="gameCanvas" width="640" height="480" class="w-full h-full object-contain block"></canvas>
+
+          <!-- Game Start / Game Over Modal Overlay -->
+          <div id="gameOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20 transition-all duration-300">
+            <div id="overlayContent" class="max-w-md w-full space-y-5">
+              <i class="fa-solid fa-shuttle-space text-5xl text-cyan-400 animate-bounce"></i>
+              <h2 id="overlayTitle" class="font-arcade text-xl md:text-2xl text-cyan-400 leading-relaxed text-glow-cyan">
+                TEACHABLE INVADERS
+              </h2>
+              <p id="overlayDesc" class="text-sm text-slate-300 leading-relaxed">
+                透過 Webcam 人臉/身體傾斜動作控制太空船左右移動，消滅來襲的侵略者敵機！
+              </p>
+
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700 text-xs text-left text-slate-400 space-y-1">
+                <p class="text-cyan-300 font-bold mb-1"><i class="fa-solid fa-circle-info mr-1"></i>重要提醒：</p>
+                <p>• 點擊下方按鈕啟動攝影機並開始載入模型。</p>
+                <p>• 太空船會自動持續發射雷射攻擊敵人。</p>
+                <p>• 保持身體在畫面中央可保持原地靜止。</p>
+              </div>
+
+              <button id="startBtn" class="w-full py-4 px-6 rounded-xl font-tech font-bold text-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-lg shadow-cyan-500/30 transition-all duration-200 transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-play"></i> 啟動辨識與開始遊戲
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas Footer Control bar -->
+        <div class="flex justify-between items-center px-4 py-2 bg-slate-950 text-xs text-slate-400 font-tech">
+          <span>CONTROL MODE: <strong id="currentCmdText" class="text-fuchsia-400 font-arcade">STOP</strong></span>
+          <span class="flex items-center gap-1"><i class="fa-solid fa-bolt text-yellow-400"></i> AUTO-FIRE ENABLED</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: Webcam Camera & Teachable Machine Info (5/12 cols) -->
+    <section class="lg:col-span-5 flex flex-col gap-5 w-full">
+      
+      <!-- Operational Reminder Box (醒目提示區) -->
+      <div class="bg-gradient-to-r from-cyan-950/60 via-slate-900 to-fuchsia-950/60 border-2 border-cyan-400/50 rounded-2xl p-4 shadow-xl glow-cyan animate-pulse-fast">
+        <h3 class="font-tech font-bold text-base text-cyan-300 flex items-center gap-2 mb-3">
+          <i class="fa-solid fa-person-dots-from-line text-yellow-400"></i> 體感操作指示
+        </h3>
+        <div class="grid grid-cols-2 gap-3 text-center">
+          <!-- Left Move -->
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-cyan-500/40 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl mb-1 border border-cyan-400/40">
+              <i class="fa-solid fa-arrow-left"></i>
+            </div>
+            <span class="font-bold text-sm text-cyan-300">身體左傾</span>
+            <span class="text-[11px] text-slate-400">太空船向左移動</span>
+          </div>
+
+          <!-- Right Move -->
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-fuchsia-500/40 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center text-xl mb-1 border border-fuchsia-400/40">
+              <i class="fa-solid fa-arrow-right"></i>
+            </div>
+            <span class="font-bold text-sm text-fuchsia-300">身體右傾</span>
+            <span class="text-[11px] text-slate-400">太空船向右移動</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Webcam Preview & Realtime Recognition -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col gap-4">
+        <div class="flex justify-between items-center">
+          <h3 class="font-tech font-bold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-video text-cyan-400"></i> 攝影機實時辨識
+          </h3>
+          <span class="text-xs bg-cyan-950 text-cyan-400 px-2.5 py-1 rounded-full border border-cyan-800 font-tech">
+            AI Model Active
+          </span>
+        </div>
+
+        <!-- Webcam Container -->
+        <div class="relative aspect-video bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+          <div id="webcamContainer" class="w-full h-full flex items-center justify-center">
+            <!-- Dynamic Webcam canvas inserted here -->
+            <div id="webcamPlaceholder" class="text-slate-600 flex flex-col items-center gap-2">
+              <i class="fa-solid fa-camera-retro text-3xl"></i>
+              <span class="text-xs">按下「開始遊戲」啟用攝影機</span>
+            </div>
+          </div>
+
+          <!-- Active Prediction Tag Overlay -->
+          <div id="predictionBadge" class="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md border border-cyan-500/50 px-3 py-1.5 rounded-lg text-xs font-tech flex items-center gap-2">
+            <span class="text-slate-400">辨識動作:</span>
+            <span id="detectedClassLabel" class="text-yellow-400 font-bold font-arcade">READY</span>
+          </div>
+        </div>
+
+        <!-- Model Predictions Confidence Meters -->
+        <div class="space-y-3 pt-1">
+          <div class="flex justify-between items-center text-xs font-tech">
+            <span class="text-slate-400">類別信心度 (Classes Score)</span>
+            <span id="thresholdNotice" class="text-slate-500 text-[10px]">門檻: ≥70%</span>
+          </div>
+
+          <!-- Dynamically generated or static progress bars -->
+          <div id="labelContainer" class="space-y-2.5">
+            <!-- Dynamic content populated by JS -->
+            <div class="text-xs text-slate-500 text-center py-2">等待載入模型類別...</div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <footer class="w-full bg-slate-950 border-t border-slate-900 py-3 text-center text-xs text-slate-500 font-tech">
+    Teachable Machine Space Invaders Game &bull; Powered by TensorFlow.js
+  </footer>
+
+  <script>
+    /* ===================================================================
+     * 1. GLOBAL CONSTANTS & TEACHABLE MACHINE CONFIGURATION
+     * =================================================================== */
+    const TM_MODEL_URL = "https://teachablemachine.withgoogle.com/models/9qGt3_30b/";
+    const CONFIDENCE_THRESHOLD = 0.70; // 信心分數大於 70% 才觸發移動指令
+
+    let model, webcam, maxPredictions;
+    let isAiRunning = false;
+    let currentPredictedDirection = "Neutral"; // "Left", "Right", "Neutral"
+
+    // DOM Elements
+    const modelStatusDot = document.getElementById("modelStatusDot");
+    const modelStatusText = document.getElementById("modelStatusText");
+    const camStatusText = document.getElementById("camStatusText");
+    const webcamContainer = document.getElementById("webcamContainer");
+    const webcamPlaceholder = document.getElementById("webcamPlaceholder");
+    const labelContainer = document.getElementById("labelContainer");
+    const detectedClassLabel = document.getElementById("detectedClassLabel");
+    const currentCmdText = document.getElementById("currentCmdText");
+
+    const gameCanvas = document.getElementById("gameCanvas");
+    const ctx = gameCanvas.getContext("2d");
+    const gameOverlay = document.getElementById("gameOverlay");
+    const overlayTitle = document.getElementById("overlayTitle");
+    const overlayDesc = document.getElementById("overlayDesc");
+    const startBtn = document.getElementById("startBtn");
+
+    const scoreDisplay = document.getElementById("scoreDisplay");
+    const livesDisplay = document.getElementById("livesDisplay");
+    const waveDisplay = document.getElementById("waveDisplay");
+
+    /* ===================================================================
+     * 2. TEACHABLE MACHINE AI INITIALIZATION & PREDICTION LOOP
+     * =================================================================== */
+    async function initTeachableMachine() {
+      try {
+        modelStatusText.innerText = "載入 TM 模型中...";
+        modelStatusDot.className = "w-3 h-3 rounded-full bg-yellow-500 animate-ping";
+
+        const modelURL = TM_MODEL_URL + "model.json";
+        const metadataURL = TM_MODEL_URL + "metadata.json";
+
+        // Load Teachable Machine Image Model
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        modelStatusText.innerText = "模型載入完畢";
+        modelStatusDot.className = "w-3 h-3 rounded-full bg-emerald-500";
+
+        // Setup Webcam
+        const flip = true; // mirror webcam
+        webcam = new tmImage.Webcam(240, 180, flip);
+        await webcam.setup(); // request permission
+        await webcam.play();
+
+        camStatusText.innerText = "攝影機連線中";
+        
+        // Render webcam canvas into container
+        webcamContainer.innerHTML = "";
+        webcamContainer.appendChild(webcam.canvas);
+        webcam.canvas.className = "w-full h-full object-cover rounded-xl";
+
+        // Prepare Progress Bar UI for Class labels
+        setupLabelProgressBars();
+
+        isAiRunning = true;
+        window.requestAnimationFrame(aiPredictionLoop);
+
+      } catch (err) {
+        console.error("AI Model / Webcam Init Error:", err);
+        modelStatusText.innerText = "載入失敗 (請檢查鏡頭權限)";
+        modelStatusDot.className = "w-3 h-3 rounded-full bg-rose-500";
+        alert("無法啟動攝影機或載入模型，請確認鏡頭存取權限！");
+      }
+    }
+
+    // Build prediction meter DOM
+    function setupLabelProgressBars() {
+      labelContainer.innerHTML = "";
+      for (let i = 0; i < maxPredictions; i++) {
+        const classTitle = model.getClassLabels()[i];
+        
+        const wrapper = document.createElement("div");
+        wrapper.className = "space-y-1";
+
+        wrapper.innerHTML = `
+          <div class="flex justify-between text-xs font-tech">
+            <span class="text-slate-300 font-bold">${classTitle}</span>
+            <span id="prob-val-${i}" class="text-cyan-400 font-arcade">0%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div id="prob-bar-${i}" class="h-full bg-cyan-500 transition-all duration-150" style="width: 0%"></div>
+          </div>
+        `;
+        labelContainer.appendChild(wrapper);
+      }
+    }
+
+    // AI Prediction Loop
+    async function aiPredictionLoop() {
+      if (isAiRunning) {
+        webcam.update();
+        await predict();
+        window.requestAnimationFrame(aiPredictionLoop);
+      }
+    }
+
+    async function predict() {
+      const prediction = await model.predict(webcam.canvas);
+      let highestProb = 0;
+      let topClassLabel = "Neutral";
+
+      for (let i = 0; i < maxPredictions; i++) {
+        const prob = prediction[i].probability;
+        const probPct = Math.round(prob * 100);
+
+        // Update progress bars
+        const barEl = document.getElementById(`prob-bar-${i}`);
+        const valEl = document.getElementById(`prob-val-${i}`);
+
+        if (barEl) barEl.style.width = probPct + "%";
+        if (valEl) valEl.innerText = probPct + "%";
+
+        if (prob > highestProb) {
+          highestProb = prob;
+          topClassLabel = prediction[i].className;
+        }
+      }
+
+      // Filter by confidence threshold
+      if (highestProb >= CONFIDENCE_THRESHOLD) {
+        currentPredictedDirection = mapClassToDirection(topClassLabel);
+        detectedClassLabel.innerText = topClassLabel.toUpperCase();
+      } else {
+        currentPredictedDirection = "Neutral";
+        detectedClassLabel.innerText = "WAITING...";
+      }
+
+      // Update control label UI
+      currentCmdText.innerText = currentPredictedDirection.toUpperCase();
+      if (currentPredictedDirection === "Left") {
+        currentCmdText.className = "font-arcade text-cyan-400";
+      } else if (currentPredictedDirection === "Right") {
+        currentCmdText.className = "font-arcade text-fuchsia-400";
+      } else {
+        currentCmdText.className = "font-arcade text-yellow-400";
+      }
+    }
+
+    // Helper: Map TM class names to game control directions (Left / Right / Neutral)
+    function mapClassToDirection(className) {
+      const lower = className.toLowerCase();
+      if (lower.includes("left") || lower.includes("向左") || lower.includes("左")) {
+        return "Left";
+      }
+      if (lower.includes("right") || lower.includes("向右") || lower.includes("右")) {
+        return "Right";
+      }
+      return "Neutral";
+    }
+
+
+    /* ===================================================================
+     * 3. SPACE INVADERS CANVAS GAME ENGINE
+     * =================================================================== */
+    
+    // Keyboard fallback support
+    const keys = {};
+    window.addEventListener("keydown", (e) => keys[e.key] = true);
+    window.addEventListener("keyup", (e) => keys[e.key] = false);
+
+    // Game Engine State Variables
+    let gameState = "START"; // "START", "PLAYING", "GAMEOVER", "WIN"
+    let score = 0;
+    let lives = 3;
+    let wave = 1;
+    let animationFrameId;
+
+    // Player Object
+    const player = {
+      x: gameCanvas.width / 2 - 20,
+      y: gameCanvas.height - 50,
+      width: 40,
+      height: 24,
+      speed: 5,
+      lastShootTime: 0,
+      shootInterval: 280 // 自動發射間隔 (毫秒)
+    };
+
+    let playerBullets = [];
+    let invaderBullets = [];
+    let invaders = [];
+    let bunkers = [];
+    let particles = []; // Explosions
+
+    // Invader Grid Configs
+    const INVADER_ROWS = 4;
+    const INVADER_COLS = 8;
+    let invaderDirection = 1; // 1 = right, -1 = left
+    let invaderMoveDown = false;
+    let invaderSpeed = 1.0;
+
+    /* --- Game Loop & Rendering --- */
+    function gameLoop(timestamp) {
+      updateGame(timestamp);
+      renderGame();
+
+      if (gameState === "PLAYING") {
+        animationFrameId = requestAnimationFrame(gameLoop);
+      }
+    }
+
+    // Reset / Init Game Stage
+    function startNewGame() {
+      score = 0;
+      lives = 3;
+      wave = 1;
+      updateHudUI();
+      initWave();
+      gameState = "PLAYING";
+      gameOverlay.classList.add("hidden");
+      
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function initWave() {
+      player.x = gameCanvas.width / 2 - player.width / 2;
+      playerBullets = [];
+      invaderBullets = [];
+      particles = [];
+
+      // Create Invaders Grid
+      invaders = [];
+      const invWidth = 32;
+      const invHeight = 24;
+      const padding = 16;
+      const offsetTop = 60;
+      const offsetLeft = (gameCanvas.width - (INVADER_COLS * (invWidth + padding))) / 2;
+
+      for (let r = 0; r < INVADER_ROWS; r++) {
+        for (let c = 0; c < INVADER_COLS; c++) {
+          invaders.push({
+            x: offsetLeft + c * (invWidth + padding),
+            y: offsetTop + r * (invHeight + padding),
+            width: invWidth,
+            height: invHeight,
+            type: r, // Row index determines color/score
+            alive: true
+          });
+        }
+      }
+
+      // Create Bunkers/Obstacles
+      createBunkers();
+      invaderSpeed = 1.0 + (wave - 1) * 0.3;
+      invaderDirection = 1;
+    }
+
+    // Generate 4 Shelters
+    function createBunkers() {
+      bunkers = [];
+      const bunkerCount = 4;
+      const bunkerWidth = 60;
+      const bunkerHeight = 35;
+      const spacing = (gameCanvas.width - (bunkerCount * bunkerWidth)) / (bunkerCount + 1);
+
+      for (let i = 0; i < bunkerCount; i++) {
+        const bx = spacing + i * (bunkerWidth + spacing);
+        const by = gameCanvas.height - 120;
+        
+        // Build bunker from small pixel blocks for destructibility
+        const blocks = [];
+        const rows = 5;
+        const cols = 8;
+        const blockW = bunkerWidth / cols;
+        const blockH = bunkerHeight / rows;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            // Arch hole logic (don't place bottom middle blocks)
+            if (r >= 3 && (c >= 2 && c <= 5)) continue;
+            
+            blocks.push({
+              x: bx + c * blockW,
+              y: by + r * blockH,
+              width: blockW,
+              height: blockH,
+              hp: 3 // Takes 3 hits to completely destroy
+            });
+          }
+        }
+
+        bunkers.push({ blocks });
+      }
+    }
+
+    /* --- Logic Updates --- */
+    function updateGame(timestamp) {
+      // 1. Move Player (AI Command or Keyboard fallback)
+      let dir = 0;
+      if (currentPredictedDirection === "Left" || keys["ArrowLeft"] || keys["a"]) {
+        dir = -1;
+      } else if (currentPredictedDirection === "Right" || keys["ArrowRight"] || keys["d"]) {
+        dir = 1;
+      }
+
+      player.x += dir * player.speed;
+      // Clamp inside canvas
+      if (player.x < 10) player.x = 10;
+      if (player.x + player.width > gameCanvas.width - 10) {
+        player.x = gameCanvas.width - 10 - player.width;
+      }
+
+      // 2. Player Auto-Shooting
+      if (timestamp - player.lastShootTime > player.shootInterval) {
+        playerBullets.push({
+          x: player.x + player.width / 2 - 2,
+          y: player.y,
+          width: 4,
+          height: 12,
+          speed: 8
+        });
+        player.lastShootTime = timestamp;
+      }
+
+      // 3. Update Player Bullets
+      for (let i = playerBullets.length - 1; i >= 0; i--) {
+        const b = playerBullets[i];
+        b.y -= b.speed;
+
+        // Offscreen removal
+        if (b.y < -10) {
+          playerBullets.splice(i, 1);
+          continue;
+        }
+
+        // Bullet vs Invaders Collision
+        let bulletHit = false;
+        for (let inv of invaders) {
+          if (inv.alive && isColliding(b, inv)) {
+            inv.alive = false;
+            bulletHit = true;
+            score += (4 - inv.type) * 10; // Row score multiplier
+            updateHudUI();
+            createExplosion(inv.x + inv.width / 2, inv.y + inv.height / 2, "#ff007f");
+            break;
+          }
+        }
+
+        if (bulletHit) {
+          playerBullets.splice(i, 1);
+          continue;
+        }
+
+        // Bullet vs Bunker Blocks Collision
+        for (let bunker of bunkers) {
+          for (let blk of bunker.blocks) {
+            if (blk.hp > 0 && isColliding(b, blk)) {
+              blk.hp--;
+              bulletHit = true;
+              createExplosion(b.x, b.y, "#39ff14", 3);
+              break;
+            }
+          }
+          if (bulletHit) break;
+        }
+
+        if (bulletHit) {
+          playerBullets.splice(i, 1);
+        }
+      }
+
+      // 4. Update Invaders Grid Movement
+      let edgeReached = false;
+      let activeInvaders = invaders.filter(inv => inv.alive);
+
+      if (activeInvaders.length === 0) {
+        // Wave Cleared!
+        wave++;
+        initWave();
+        updateHudUI();
+        return;
+      }
+
+      for (let inv of activeInvaders) {
+        inv.x += invaderDirection * invaderSpeed;
+        if (inv.x <= 15 || inv.x + inv.width >= gameCanvas.width - 15) {
+          edgeReached = true;
+        }
+
+        // Invader reached player bottom -> Game Over
+        if (inv.y + inv.height >= player.y) {
+          triggerGameOver(false);
+          return;
+        }
+      }
+
+      if (edgeReached) {
+        invaderDirection *= -1;
+        for (let inv of activeInvaders) {
+          inv.y += 12;
+        }
+      }
+
+      // 5. Invader Random Shooting
+      if (Math.random() < 0.02 + wave * 0.005) {
+        const randomInv = activeInvaders[Math.floor(Math.random() * activeInvaders.length)];
+        if (randomInv) {
+          invaderBullets.push({
+            x: randomInv.x + randomInv.width / 2 - 2,
+            y: randomInv.y + randomInv.height,
+            width: 4,
+            height: 10,
+            speed: 4.5
+          });
+        }
+      }
+
+      // 6. Update Invader Bullets
+      for (let i = invaderBullets.length - 1; i >= 0; i--) {
+        const b = invaderBullets[i];
+        b.y += b.speed;
+
+        if (b.y > gameCanvas.height + 10) {
+          invaderBullets.splice(i, 1);
+          continue;
+        }
+
+        // Enemy Bullet vs Player
+        if (isColliding(b, player)) {
+          invaderBullets.splice(i, 1);
+          lives--;
+          updateHudUI();
+          createExplosion(player.x + player.width / 2, player.y + player.height / 2, "#45f3ff", 15);
+
+          if (lives <= 0) {
+            triggerGameOver(false);
+            return;
+          }
+          continue;
+        }
+
+        // Enemy Bullet vs Bunkers
+        let bulletHit = false;
+        for (let bunker of bunkers) {
+          for (let blk of bunker.blocks) {
+            if (blk.hp > 0 && isColliding(b, blk)) {
+              blk.hp--;
+              bulletHit = true;
+              createExplosion(b.x, b.y, "#39ff14", 3);
+              break;
+            }
+          }
+          if (bulletHit) break;
+        }
+
+        if (bulletHit) {
+          invaderBullets.splice(i, 1);
+        }
+      }
+
+      // 7. Update Explosion Particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.03;
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+    }
+
+    // Collision Box Checker
+    function isColliding(rect1, rect2) {
+      return (
+        rect1.x < rect2.x + rect2.width &&
+        rect1.x + rect1.width > rect2.x &&
+        rect1.y < rect2.y + rect2.height &&
+        rect1.y + rect1.height > rect2.y
+      );
+    }
+
+    // Particle Explosion FX
+    function createExplosion(x, y, color, count = 8) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 6,
+          vy: (Math.random() - 0.5) * 6,
+          radius: Math.random() * 2.5 + 1,
+          color: color,
+          alpha: 1.0
+        });
+      }
+    }
+
+    /* --- Render Functions --- */
+    function renderGame() {
+      // Clear Screen
+      ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+      // Draw Player Shuttle (Arcade Style Vector)
+      ctx.fillStyle = "#45f3ff";
+      ctx.shadowColor = "#45f3ff";
+      ctx.shadowBlur = 10;
+      
+      // Cannon tip
+      ctx.fillRect(player.x + player.width / 2 - 3, player.y - 6, 6, 8);
+      // Main Body
+      ctx.fillRect(player.x + 4, player.y + 4, player.width - 8, player.height - 4);
+      // Wings
+      ctx.fillRect(player.x, player.y + 12, player.width, 8);
+
+      // Draw Player Bullets
+      ctx.fillStyle = "#ffe600";
+      ctx.shadowColor = "#ffe600";
+      ctx.shadowBlur = 8;
+      for (let b of playerBullets) {
+        ctx.fillRect(b.x, b.y, b.width, b.height);
+      }
+
+      // Draw Invaders
+      const invaderColors = ["#ff007f", "#bf00ff", "#00f0ff", "#39ff14"];
+      for (let inv of invaders) {
+        if (!inv.alive) continue;
+
+        ctx.fillStyle = invaderColors[inv.type % invaderColors.length];
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.shadowBlur = 8;
+
+        // Alien Pixel Shape Rendering
+        const x = inv.x;
+        const y = inv.y;
+        const w = inv.width;
+        const h = inv.height;
+
+        ctx.fillRect(x + 8, y, w - 16, h);
+        ctx.fillRect(x, y + 6, w, h - 12);
+        // Antennas & Feet
+        ctx.fillRect(x + 4, y - 4, 4, 4);
+        ctx.fillRect(x + w - 8, y - 4, 4, 4);
+        ctx.fillRect(x + 2, y + h, 6, 4);
+        ctx.fillRect(x + w - 8, y + h, 6, 4);
+      }
+
+      // Draw Invader Bullets
+      ctx.fillStyle = "#ff0055";
+      ctx.shadowColor = "#ff0055";
+      ctx.shadowBlur = 8;
+      for (let b of invaderBullets) {
+        ctx.fillRect(b.x, b.y, b.width, b.height);
+      }
+
+      // Draw Bunker Obstacles
+      ctx.shadowBlur = 0; // Turn off heavy shadow for blocks
+      for (let bunker of bunkers) {
+        for (let blk of bunker.blocks) {
+          if (blk.hp <= 0) continue;
+
+          if (blk.hp === 3) ctx.fillStyle = "#39ff14";
+          else if (blk.hp === 2) ctx.fillStyle = "#20b00d";
+          else ctx.fillStyle = "#116005";
+
+          ctx.fillRect(blk.x, blk.y, blk.width, blk.height);
+        }
+      }
+
+      // Draw Explosion Particles
+      for (let p of particles) {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Reset Shadow Blur
+      ctx.shadowBlur = 0;
+    }
+
+    // HUD Display Update
+    function updateHudUI() {
+      scoreDisplay.innerText = score.toString().padStart(5, '0');
+      waveDisplay.innerText = wave;
+
+      // Update hearts/lives
+      livesDisplay.innerHTML = "";
+      for (let i = 0; i < lives; i++) {
+        livesDisplay.innerHTML += '<i class="fa-solid fa-shuttle-space text-cyan-400"></i>';
+      }
+    }
+
+    // Trigger Game Over or Win Panel
+    function triggerGameOver(isWin) {
+      gameState = isWin ? "WIN" : "GAMEOVER";
+      
+      overlayTitle.innerText = isWin ? "MISSION ACCOMPLISHED!" : "GAME OVER";
+      overlayTitle.className = isWin 
+        ? "font-arcade text-xl md:text-2xl text-emerald-400 leading-relaxed" 
+        : "font-arcade text-xl md:text-2xl text-rose-500 leading-relaxed";
+
+      overlayDesc.innerHTML = `
+        遊戲結束！最終得分: <span class="text-yellow-400 font-arcade font-bold">${score}</span><br>
+        清除波數 Wave: <span class="text-cyan-400 font-bold">${wave}</span>
+      `;
+
+      startBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 重新開始遊戲';
+      gameOverlay.classList.remove("hidden");
+    }
+
+    /* ===================================================================
+     * 4. EVENT LISTENERS
+     * =================================================================== */
+    startBtn.addEventListener("click", async () => {
+      // Initialize AI model & Webcam on first click
+      if (!isAiRunning) {
+        await initTeachableMachine();
+      }
+      startNewGame();
+    });
+
+    // Auto-fit canvas resolution on window load
+    window.addEventListener("load", () => {
+      renderGame(); // Draw initial static canvas preview
+    });
+  </script>
+</body>
+</html>
