@@ -1,887 +1,1285 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW" class="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Teachable Machine 太空侵略者 Space Invaders</title>
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- TensorFlow.js & Teachable Machine Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-  
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Google Fonts: Orbitron & Press Start 2P for Arcade Vibe -->
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Press+Start+2P&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
-
-  <style>
-    body {
-      font-family: 'Noto Sans TC', sans-serif;
-      background-color: #0b0c10;
-      color: #c5c6c7;
-      overflow-x: hidden;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 體感視訊太空侵略者 (Continuous AI Space Invaders)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        space: {
+                            900: '#0A0C1B',
+                            800: '#12162D',
+                            700: '#1D2447',
+                            border: '#2E386E',
+                            cyan: '#00F0FF',
+                            pink: '#FF007A',
+                            yellow: '#FFE600',
+                            green: '#00FF66'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['Courier New', 'monospace', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    .font-arcade {
-      font-family: 'Press Start 2P', monospace;
-    }
-    
-    .font-tech {
-      font-family: 'Orbitron', sans-serif;
-    }
+    <!-- TensorFlow.js and Teachable Machine Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8.5/dist/teachablemachine-pose.min.js"></script>
 
-    /* Neon Glow Effects */
-    .glow-cyan {
-      box-shadow: 0 0 15px rgba(66, 211, 255, 0.4), inset 0 0 15px rgba(66, 211, 255, 0.2);
-      border: 1px solid #45f3ff;
-    }
-    
-    .glow-magenta {
-      box-shadow: 0 0 15px rgba(255, 0, 127, 0.4), inset 0 0 15px rgba(255, 0, 127, 0.2);
-      border: 1px solid #ff007f;
-    }
-
-    .glow-green {
-      box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
-      border: 1px solid #39ff14;
-    }
-
-    .text-glow-cyan {
-      text-shadow: 0 0 8px #45f3ff;
-    }
-
-    .text-glow-magenta {
-      text-shadow: 0 0 8px #ff007f;
-    }
-
-    /* Custom Canvas Styling */
-    #gameCanvas {
-      background: #05050a;
-      background-image: 
-        radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
-        radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px),
-        radial-gradient(white, rgba(255,255,255,.1) 2px, transparent 40px);
-      background-size: 550px 550px, 350px 350px, 250px 250px;
-      background-position: 0 0, 40px 60px, 130px 270px;
-      box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 25px rgba(69, 243, 255, 0.2);
-    }
-
-    /* Pulse animations */
-    @keyframes pulse-fast {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.85; transform: scale(1.02); }
-    }
-    .animate-pulse-fast {
-      animation: pulse-fast 1.5s infinite ease-in-out;
-    }
-  </style>
+    <style>
+        .neon-glow-cyan { box-shadow: 0 0 15px rgba(0, 240, 255, 0.6); }
+        .neon-glow-pink { box-shadow: 0 0 15px rgba(255, 0, 122, 0.6); }
+        .neon-text-cyan { text-shadow: 0 0 8px rgba(0, 240, 255, 0.8); }
+        .neon-text-pink { text-shadow: 0 0 8px rgba(255, 0, 122, 0.8); }
+        .neon-text-yellow { text-shadow: 0 0 8px rgba(255, 230, 0, 0.8); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0A0C1B; }
+        ::-webkit-scrollbar-thumb { background: #1D2447; border-radius: 3px; }
+    </style>
 </head>
+<body class="bg-space-900 text-slate-100 font-sans min-h-screen flex flex-col justify-between selection:bg-space-cyan selection:text-space-900">
 
-<body class="min-h-screen flex flex-col justify-between bg-slate-950 text-slate-100">
-
-  <!-- Header / Navigation Bar -->
-  <header class="w-full bg-slate-900/80 border-b border-cyan-500/30 backdrop-blur-md px-6 py-4 flex flex-wrap justify-between items-center z-10">
-    <div class="flex items-center gap-3">
-      <i class="fa-solid fa-gamepad text-cyan-400 text-3xl"></i>
-      <div>
-        <h1 class="font-tech text-xl md:text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-fuchsia-500">
-          TEACHABLE INVADERS
-        </h1>
-        <p class="text-xs text-slate-400">AI 姿勢控制太空侵略者遊戲</p>
-      </div>
-    </div>
-
-    <!-- Live Status Indicators -->
-    <div class="flex items-center gap-4 text-xs font-tech">
-      <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700">
-        <span id="modelStatusDot" class="w-3 h-3 rounded-full bg-amber-500 animate-ping"></span>
-        <span id="modelStatusText" class="text-slate-300">模型準備中...</span>
-      </div>
-      <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700">
-        <i class="fa-solid fa-camera text-cyan-400"></i>
-        <span id="camStatusText" class="text-slate-300">攝影機關閉</span>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Grid Layout -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-    
-    <!-- LEFT COLUMN: Canvas Game Window (7/12 cols on desktop) -->
-    <section class="lg:col-span-7 flex flex-col items-center justify-center w-full">
-      <div class="relative w-full rounded-2xl p-2 bg-slate-900 border border-slate-800 glow-cyan overflow-hidden">
-        
-        <!-- Game HUD Overlay Top -->
-        <div class="flex justify-between items-center px-4 py-2 bg-slate-950/80 rounded-t-xl font-tech text-sm md:text-base border-b border-slate-800/80">
-          <div class="flex items-center gap-2">
-            <span class="text-slate-400">SCORE:</span>
-            <span id="scoreDisplay" class="font-arcade text-yellow-400 text-lg">00000</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-slate-400">LIVES:</span>
-            <div id="livesDisplay" class="flex gap-1 text-cyan-400">
-              <i class="fa-solid fa-shuttle-space"></i>
-              <i class="fa-solid fa-shuttle-space"></i>
-              <i class="fa-solid fa-shuttle-space"></i>
+    <header class="border-b border-space-border/60 bg-space-800/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-space-pink via-purple-600 to-space-cyan flex items-center justify-center text-space-900 font-bold text-xl shadow-lg">
+                    <i class="fa-solid fa-rocket"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-space-cyan to-space-pink">
+                        SPACE INVADERS AI 體感戰鬥版
+                    </h1>
+                    <p class="text-xs text-slate-400">身體左傾/右傾控速 | 雙向相容持續偵測</p>
+                </div>
             </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-slate-400">WAVE:</span>
-            <span id="waveDisplay" class="font-tech text-fuchsia-400 font-bold">1</span>
-          </div>
-        </div>
-
-        <!-- Canvas Game Window -->
-        <div class="relative w-full aspect-[4/3] flex items-center justify-center bg-black rounded-b-xl overflow-hidden">
-          <canvas id="gameCanvas" width="640" height="480" class="w-full h-full object-contain block"></canvas>
-
-          <!-- Game Start / Game Over Modal Overlay -->
-          <div id="gameOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20 transition-all duration-300">
-            <div id="overlayContent" class="max-w-md w-full space-y-5">
-              <i class="fa-solid fa-shuttle-space text-5xl text-cyan-400 animate-bounce"></i>
-              <h2 id="overlayTitle" class="font-arcade text-xl md:text-2xl text-cyan-400 leading-relaxed text-glow-cyan">
-                TEACHABLE INVADERS
-              </h2>
-              <p id="overlayDesc" class="text-sm text-slate-300 leading-relaxed">
-                透過 Webcam 人臉/身體傾斜動作控制太空船左右移動，消滅來襲的侵略者敵機！
-              </p>
-
-              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700 text-xs text-left text-slate-400 space-y-1">
-                <p class="text-cyan-300 font-bold mb-1"><i class="fa-solid fa-circle-info mr-1"></i>重要提醒：</p>
-                <p>• 點擊下方按鈕啟動攝影機並開始載入模型。</p>
-                <p>• 太空船會自動持續發射雷射攻擊敵人。</p>
-                <p>• 保持身體在畫面中央可保持原地靜止。</p>
-              </div>
-
-              <button id="startBtn" class="w-full py-4 px-6 rounded-xl font-tech font-bold text-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-lg shadow-cyan-500/30 transition-all duration-200 transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
-                <i class="fa-solid fa-play"></i> 啟動辨識與開始遊戲
-              </button>
+            <div class="flex items-center gap-2 text-xs">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-space-700/60 border border-space-border text-space-cyan">
+                    <span class="w-2 h-2 rounded-full bg-space-cyan animate-pulse"></span>
+                    Model ID: <span class="font-mono text-slate-300">9qGt3_30b</span>
+                </span>
             </div>
-          </div>
         </div>
+    </header>
 
-        <!-- Canvas Footer Control bar -->
-        <div class="flex justify-between items-center px-4 py-2 bg-slate-950 text-xs text-slate-400 font-tech">
-          <span>CONTROL MODE: <strong id="currentCmdText" class="text-fuchsia-400 font-arcade">STOP</strong></span>
-          <span class="flex items-center gap-1"><i class="fa-solid fa-bolt text-yellow-400"></i> AUTO-FIRE ENABLED</span>
-        </div>
-      </div>
-    </section>
+    <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-    <!-- RIGHT COLUMN: Webcam Camera & Teachable Machine Info (5/12 cols) -->
-    <section class="lg:col-span-5 flex flex-col gap-5 w-full">
-      
-      <!-- Operational Reminder Box (醒目提示區) -->
-      <div class="bg-gradient-to-r from-cyan-950/60 via-slate-900 to-fuchsia-950/60 border-2 border-cyan-400/50 rounded-2xl p-4 shadow-xl glow-cyan animate-pulse-fast">
-        <h3 class="font-tech font-bold text-base text-cyan-300 flex items-center gap-2 mb-3">
-          <i class="fa-solid fa-person-dots-from-line text-yellow-400"></i> 體感操作指示
-        </h3>
-        <div class="grid grid-cols-2 gap-3 text-center">
-          <!-- Left Move -->
-          <div class="bg-slate-900/80 p-3 rounded-xl border border-cyan-500/40 flex flex-col items-center">
-            <div class="w-10 h-10 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl mb-1 border border-cyan-400/40">
-              <i class="fa-solid fa-arrow-left"></i>
-            </div>
-            <span class="font-bold text-sm text-cyan-300">身體左傾</span>
-            <span class="text-[11px] text-slate-400">太空船向左移動</span>
-          </div>
-
-          <!-- Right Move -->
-          <div class="bg-slate-900/80 p-3 rounded-xl border border-fuchsia-500/40 flex flex-col items-center">
-            <div class="w-10 h-10 rounded-full bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center text-xl mb-1 border border-fuchsia-400/40">
-              <i class="fa-solid fa-arrow-right"></i>
-            </div>
-            <span class="font-bold text-sm text-fuchsia-300">身體右傾</span>
-            <span class="text-[11px] text-slate-400">太空船向右移動</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Webcam Preview & Realtime Recognition -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col gap-4">
-        <div class="flex justify-between items-center">
-          <h3 class="font-tech font-bold text-slate-200 flex items-center gap-2">
-            <i class="fa-solid fa-video text-cyan-400"></i> 攝影機實時辨識
-          </h3>
-          <span class="text-xs bg-cyan-950 text-cyan-400 px-2.5 py-1 rounded-full border border-cyan-800 font-tech">
-            AI Model Active
-          </span>
-        </div>
-
-        <!-- Webcam Container -->
-        <div class="relative aspect-video bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
-          <div id="webcamContainer" class="w-full h-full flex items-center justify-center">
-            <!-- Dynamic Webcam canvas inserted here -->
-            <div id="webcamPlaceholder" class="text-slate-600 flex flex-col items-center gap-2">
-              <i class="fa-solid fa-camera-retro text-3xl"></i>
-              <span class="text-xs">按下「開始遊戲」啟用攝影機</span>
-            </div>
-          </div>
-
-          <!-- Active Prediction Tag Overlay -->
-          <div id="predictionBadge" class="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md border border-cyan-500/50 px-3 py-1.5 rounded-lg text-xs font-tech flex items-center gap-2">
-            <span class="text-slate-400">辨識動作:</span>
-            <span id="detectedClassLabel" class="text-yellow-400 font-bold font-arcade">READY</span>
-          </div>
-        </div>
-
-        <!-- Model Predictions Confidence Meters -->
-        <div class="space-y-3 pt-1">
-          <div class="flex justify-between items-center text-xs font-tech">
-            <span class="text-slate-400">類別信心度 (Classes Score)</span>
-            <span id="thresholdNotice" class="text-slate-500 text-[10px]">門檻: ≥70%</span>
-          </div>
-
-          <!-- Dynamically generated or static progress bars -->
-          <div id="labelContainer" class="space-y-2.5">
-            <!-- Dynamic content populated by JS -->
-            <div class="text-xs text-slate-500 text-center py-2">等待載入模型類別...</div>
-          </div>
-        </div>
-      </div>
-
-    </section>
-  </main>
-
-  <footer class="w-full bg-slate-950 border-t border-slate-900 py-3 text-center text-xs text-slate-500 font-tech">
-    Teachable Machine Space Invaders Game &bull; Powered by TensorFlow.js
-  </footer>
-
-  <script>
-    /* ===================================================================
-     * 1. GLOBAL CONSTANTS & TEACHABLE MACHINE CONFIGURATION
-     * =================================================================== */
-    const TM_MODEL_URL = "https://teachablemachine.withgoogle.com/models/9qGt3_30b/";
-    const CONFIDENCE_THRESHOLD = 0.70; // 信心分數大於 70% 才觸發移動指令
-
-    let model, webcam, maxPredictions;
-    let isAiRunning = false;
-    let currentPredictedDirection = "Neutral"; // "Left", "Right", "Neutral"
-
-    // DOM Elements
-    const modelStatusDot = document.getElementById("modelStatusDot");
-    const modelStatusText = document.getElementById("modelStatusText");
-    const camStatusText = document.getElementById("camStatusText");
-    const webcamContainer = document.getElementById("webcamContainer");
-    const webcamPlaceholder = document.getElementById("webcamPlaceholder");
-    const labelContainer = document.getElementById("labelContainer");
-    const detectedClassLabel = document.getElementById("detectedClassLabel");
-    const currentCmdText = document.getElementById("currentCmdText");
-
-    const gameCanvas = document.getElementById("gameCanvas");
-    const ctx = gameCanvas.getContext("2d");
-    const gameOverlay = document.getElementById("gameOverlay");
-    const overlayTitle = document.getElementById("overlayTitle");
-    const overlayDesc = document.getElementById("overlayDesc");
-    const startBtn = document.getElementById("startBtn");
-
-    const scoreDisplay = document.getElementById("scoreDisplay");
-    const livesDisplay = document.getElementById("livesDisplay");
-    const waveDisplay = document.getElementById("waveDisplay");
-
-    /* ===================================================================
-     * 2. TEACHABLE MACHINE AI INITIALIZATION & PREDICTION LOOP
-     * =================================================================== */
-    async function initTeachableMachine() {
-      try {
-        modelStatusText.innerText = "載入 TM 模型中...";
-        modelStatusDot.className = "w-3 h-3 rounded-full bg-yellow-500 animate-ping";
-
-        const modelURL = TM_MODEL_URL + "model.json";
-        const metadataURL = TM_MODEL_URL + "metadata.json";
-
-        // Load Teachable Machine Image Model
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
-
-        modelStatusText.innerText = "模型載入完畢";
-        modelStatusDot.className = "w-3 h-3 rounded-full bg-emerald-500";
-
-        // Setup Webcam
-        const flip = true; // mirror webcam
-        webcam = new tmImage.Webcam(240, 180, flip);
-        await webcam.setup(); // request permission
-        await webcam.play();
-
-        camStatusText.innerText = "攝影機連線中";
-        
-        // Render webcam canvas into container
-        webcamContainer.innerHTML = "";
-        webcamContainer.appendChild(webcam.canvas);
-        webcam.canvas.className = "w-full h-full object-cover rounded-xl";
-
-        // Prepare Progress Bar UI for Class labels
-        setupLabelProgressBars();
-
-        isAiRunning = true;
-        window.requestAnimationFrame(aiPredictionLoop);
-
-      } catch (err) {
-        console.error("AI Model / Webcam Init Error:", err);
-        modelStatusText.innerText = "載入失敗 (請檢查鏡頭權限)";
-        modelStatusDot.className = "w-3 h-3 rounded-full bg-rose-500";
-        alert("無法啟動攝影機或載入模型，請確認鏡頭存取權限！");
-      }
-    }
-
-    // Build prediction meter DOM
-    function setupLabelProgressBars() {
-      labelContainer.innerHTML = "";
-      for (let i = 0; i < maxPredictions; i++) {
-        const classTitle = model.getClassLabels()[i];
-        
-        const wrapper = document.createElement("div");
-        wrapper.className = "space-y-1";
-
-        wrapper.innerHTML = `
-          <div class="flex justify-between text-xs font-tech">
-            <span class="text-slate-300 font-bold">${classTitle}</span>
-            <span id="prob-val-${i}" class="text-cyan-400 font-arcade">0%</span>
-          </div>
-          <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-            <div id="prob-bar-${i}" class="h-full bg-cyan-500 transition-all duration-150" style="width: 0%"></div>
-          </div>
-        `;
-        labelContainer.appendChild(wrapper);
-      }
-    }
-
-    // AI Prediction Loop
-    async function aiPredictionLoop() {
-      if (isAiRunning) {
-        webcam.update();
-        await predict();
-        window.requestAnimationFrame(aiPredictionLoop);
-      }
-    }
-
-    async function predict() {
-      const prediction = await model.predict(webcam.canvas);
-      let highestProb = 0;
-      let topClassLabel = "Neutral";
-
-      for (let i = 0; i < maxPredictions; i++) {
-        const prob = prediction[i].probability;
-        const probPct = Math.round(prob * 100);
-
-        // Update progress bars
-        const barEl = document.getElementById(`prob-bar-${i}`);
-        const valEl = document.getElementById(`prob-val-${i}`);
-
-        if (barEl) barEl.style.width = probPct + "%";
-        if (valEl) valEl.innerText = probPct + "%";
-
-        if (prob > highestProb) {
-          highestProb = prob;
-          topClassLabel = prediction[i].className;
-        }
-      }
-
-      // Filter by confidence threshold
-      if (highestProb >= CONFIDENCE_THRESHOLD) {
-        currentPredictedDirection = mapClassToDirection(topClassLabel);
-        detectedClassLabel.innerText = topClassLabel.toUpperCase();
-      } else {
-        currentPredictedDirection = "Neutral";
-        detectedClassLabel.innerText = "WAITING...";
-      }
-
-      // Update control label UI
-      currentCmdText.innerText = currentPredictedDirection.toUpperCase();
-      if (currentPredictedDirection === "Left") {
-        currentCmdText.className = "font-arcade text-cyan-400";
-      } else if (currentPredictedDirection === "Right") {
-        currentCmdText.className = "font-arcade text-fuchsia-400";
-      } else {
-        currentCmdText.className = "font-arcade text-yellow-400";
-      }
-    }
-
-    // Helper: Map TM class names to game control directions (Left / Right / Neutral)
-    function mapClassToDirection(className) {
-      const lower = className.toLowerCase();
-      if (lower.includes("left") || lower.includes("向左") || lower.includes("左")) {
-        return "Left";
-      }
-      if (lower.includes("right") || lower.includes("向右") || lower.includes("右")) {
-        return "Right";
-      }
-      return "Neutral";
-    }
-
-
-    /* ===================================================================
-     * 3. SPACE INVADERS CANVAS GAME ENGINE
-     * =================================================================== */
-    
-    // Keyboard fallback support
-    const keys = {};
-    window.addEventListener("keydown", (e) => keys[e.key] = true);
-    window.addEventListener("keyup", (e) => keys[e.key] = false);
-
-    // Game Engine State Variables
-    let gameState = "START"; // "START", "PLAYING", "GAMEOVER", "WIN"
-    let score = 0;
-    let lives = 3;
-    let wave = 1;
-    let animationFrameId;
-
-    // Player Object
-    const player = {
-      x: gameCanvas.width / 2 - 20,
-      y: gameCanvas.height - 50,
-      width: 40,
-      height: 24,
-      speed: 5,
-      lastShootTime: 0,
-      shootInterval: 280 // 自動發射間隔 (毫秒)
-    };
-
-    let playerBullets = [];
-    let invaderBullets = [];
-    let invaders = [];
-    let bunkers = [];
-    let particles = []; // Explosions
-
-    // Invader Grid Configs
-    const INVADER_ROWS = 4;
-    const INVADER_COLS = 8;
-    let invaderDirection = 1; // 1 = right, -1 = left
-    let invaderMoveDown = false;
-    let invaderSpeed = 1.0;
-
-    /* --- Game Loop & Rendering --- */
-    function gameLoop(timestamp) {
-      updateGame(timestamp);
-      renderGame();
-
-      if (gameState === "PLAYING") {
-        animationFrameId = requestAnimationFrame(gameLoop);
-      }
-    }
-
-    // Reset / Init Game Stage
-    function startNewGame() {
-      score = 0;
-      lives = 3;
-      wave = 1;
-      updateHudUI();
-      initWave();
-      gameState = "PLAYING";
-      gameOverlay.classList.add("hidden");
-      
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = requestAnimationFrame(gameLoop);
-    }
-
-    function initWave() {
-      player.x = gameCanvas.width / 2 - player.width / 2;
-      playerBullets = [];
-      invaderBullets = [];
-      particles = [];
-
-      // Create Invaders Grid
-      invaders = [];
-      const invWidth = 32;
-      const invHeight = 24;
-      const padding = 16;
-      const offsetTop = 60;
-      const offsetLeft = (gameCanvas.width - (INVADER_COLS * (invWidth + padding))) / 2;
-
-      for (let r = 0; r < INVADER_ROWS; r++) {
-        for (let c = 0; c < INVADER_COLS; c++) {
-          invaders.push({
-            x: offsetLeft + c * (invWidth + padding),
-            y: offsetTop + r * (invHeight + padding),
-            width: invWidth,
-            height: invHeight,
-            type: r, // Row index determines color/score
-            alive: true
-          });
-        }
-      }
-
-      // Create Bunkers/Obstacles
-      createBunkers();
-      invaderSpeed = 1.0 + (wave - 1) * 0.3;
-      invaderDirection = 1;
-    }
-
-    // Generate 4 Shelters
-    function createBunkers() {
-      bunkers = [];
-      const bunkerCount = 4;
-      const bunkerWidth = 60;
-      const bunkerHeight = 35;
-      const spacing = (gameCanvas.width - (bunkerCount * bunkerWidth)) / (bunkerCount + 1);
-
-      for (let i = 0; i < bunkerCount; i++) {
-        const bx = spacing + i * (bunkerWidth + spacing);
-        const by = gameCanvas.height - 120;
-        
-        // Build bunker from small pixel blocks for destructibility
-        const blocks = [];
-        const rows = 5;
-        const cols = 8;
-        const blockW = bunkerWidth / cols;
-        const blockH = bunkerHeight / rows;
-
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
-            // Arch hole logic (don't place bottom middle blocks)
-            if (r >= 3 && (c >= 2 && c <= 5)) continue;
+        <!-- 左側：太空侵略者遊戲 Canvas 視窗 -->
+        <section class="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
             
-            blocks.push({
-              x: bx + c * blockW,
-              y: by + r * blockH,
-              width: blockW,
-              height: blockH,
-              hp: 3 // Takes 3 hits to completely destroy
+            <!-- 遊戲數據儀表板 -->
+            <div class="bg-space-800 border border-space-border rounded-xl p-4 flex justify-between items-center gap-2 flex-wrap shadow-lg">
+                <div class="flex items-center gap-6">
+                    <div>
+                        <div class="text-xs text-slate-400">SCORE</div>
+                        <div id="scoreDisplay" class="text-2xl font-mono font-bold text-space-cyan neon-text-cyan">00000</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400">HIGH SCORE</div>
+                        <div id="highScoreDisplay" class="text-2xl font-mono font-bold text-space-yellow neon-text-yellow">00000</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400">WAVE</div>
+                        <div id="waveDisplay" class="text-2xl font-mono font-bold text-slate-200">1</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-1.5" id="livesContainer" title="剩餘生命值">
+                        <i class="fa-solid fa-shuttle-space text-space-pink text-lg"></i>
+                        <i class="fa-solid fa-shuttle-space text-space-pink text-lg"></i>
+                        <i class="fa-solid fa-shuttle-space text-space-pink text-lg"></i>
+                    </div>
+                    <button id="btnStartPause" class="px-5 py-2 rounded-lg bg-space-cyan text-space-900 font-bold hover:bg-cyan-300 transition-all flex items-center gap-2 shadow-md hover:neon-glow-cyan active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-play"></i> <span>開始遊戲</span>
+                    </button>
+                    <button id="btnRestart" class="px-3 py-2 rounded-lg bg-space-700 hover:bg-space-border text-slate-200 transition-all active:scale-95" title="重新開始">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas 遊戲視窗容器 -->
+            <div class="relative bg-black rounded-2xl border-2 border-space-border overflow-hidden aspect-[4/3] w-full shadow-2xl flex items-center justify-center">
+                <canvas id="gameCanvas" width="800" height="600" class="w-full h-full block bg-space-900"></canvas>
+
+                <!-- 遊戲狀態 Overlay -->
+                <div id="gameOverlay" class="absolute inset-0 bg-space-900/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 text-center p-6 transition-all">
+                    <div class="w-16 h-16 rounded-2xl bg-space-800 border border-space-cyan/40 flex items-center justify-center text-space-cyan text-3xl mb-2 neon-glow-cyan">
+                        <i class="fa-solid fa-gamepad"></i>
+                    </div>
+                    <h2 id="overlayTitle" class="text-3xl font-bold text-white tracking-wider">AI 體感侵略者戰鬥</h2>
+                    <p id="overlaySubtitle" class="text-sm text-slate-300 max-w-md leading-relaxed">
+                        向鏡頭做出姿勢：<br>
+                        <span class="text-space-cyan font-bold">👈 身體左傾</span> 太空艙向左移動<br>
+                        <span class="text-space-pink font-bold">👉 身體右傾</span> 太空艙向右移動！
+                    </p>
+                    <button id="btnOverlayAction" class="mt-2 px-8 py-3 bg-gradient-to-r from-space-cyan to-blue-500 text-space-900 font-bold rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition cursor-pointer">
+                        進入遊戲
+                    </button>
+                </div>
+            </div>
+
+            <!-- 操作指引卡片 -->
+            <div class="bg-space-800/80 border border-space-border rounded-xl p-4 text-sm text-slate-300 shadow-md">
+                <h3 class="font-bold text-space-cyan flex items-center gap-2 mb-3 text-base">
+                    <i class="fa-solid fa-person-dots-from-line text-space-pink"></i> 體感操作與掩體指引
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs leading-relaxed">
+                    <div class="bg-space-900/80 p-3 rounded-lg border border-space-cyan/30 flex flex-col gap-1.5">
+                        <div class="font-bold text-space-cyan flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-child-reaching"></i> 身體移動控制
+                        </div>
+                        <div>👈 <strong class="text-white">身體左傾：</strong> 控制太空艙向左移動</div>
+                        <div>👉 <strong class="text-white">身體右傾：</strong> 控制太空艙向右移動</div>
+                        <div>🧍 <strong class="text-white">保持直立：</strong> 太空艙原地待命</div>
+                    </div>
+                    <div class="bg-space-900/80 p-3 rounded-lg border border-space-border/50 flex flex-col gap-1.5">
+                        <div class="font-bold text-space-yellow flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-shield-halved"></i> 掩體與開火模式
+                        </div>
+                        <div>• 綠色防禦掩體：可阻擋子彈，隨擊中次數磨損</div>
+                        <div>• 自動開火：支援開啟 switch 自動發射子彈</div>
+                        <div>• 鍵盤備援：<kbd class="px-1 py-0.5 bg-space-700 rounded text-slate-200">A/D</kbd> 或 <kbd class="px-1 py-0.5 bg-space-700 rounded text-slate-200">←/→</kbd> 移動，<kbd class="px-1 py-0.5 bg-space-700 rounded text-slate-200">Space</kbd> 射擊</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 右側：AI 視訊辨識與鏡頭儀表板 -->
+        <section class="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
+
+            <!-- 攝影機畫面與體感提示 -->
+            <div class="bg-space-800 border border-space-border rounded-xl p-4 shadow-lg flex flex-col gap-3">
+                <div class="flex justify-between items-center border-b border-space-border/60 pb-2.5">
+                    <h2 class="font-bold text-white flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-video text-space-pink"></i> 體感識別即時鏡頭
+                    </h2>
+                    <span id="modelStatusTag" class="text-xs px-2.5 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 flex items-center gap-1.5">
+                        <i class="fa-solid fa-spinner animate-spin"></i> 載入 AI 模型中...
+                    </span>
+                </div>
+
+                <!-- 動作提示高亮卡片 -->
+                <div class="grid grid-cols-3 gap-1.5 text-xs font-bold text-center">
+                    <div id="badgeLeftHint" class="py-2 px-1 rounded-lg bg-space-900 border border-space-cyan/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5 opacity-60">
+                        <span class="text-base">👈</span>
+                        <span>身體左傾</span>
+                    </div>
+                    <div id="badgeNeutralHint" class="py-2 px-1 rounded-lg bg-space-900 border border-slate-600/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5 opacity-60">
+                        <span class="text-base">🧍</span>
+                        <span>保持直立</span>
+                    </div>
+                    <div id="badgeRightHint" class="py-2 px-1 rounded-lg bg-space-900 border border-space-pink/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5 opacity-60">
+                        <span class="text-base">👉</span>
+                        <span>身體右傾</span>
+                    </div>
+                </div>
+
+                <!-- Webcam 視訊 Canvas 容器 -->
+                <div class="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-space-border/80 flex items-center justify-center shadow-inner">
+                    <div id="webcamContainer" class="w-full h-full flex items-center justify-center">
+                        <div class="text-xs text-slate-500 flex items-center gap-2">
+                            <i class="fa-solid fa-circle-notch animate-spin"></i> 正在獲取相機權限...
+                        </div>
+                    </div>
+                    
+                    <!-- 即時最高判定指令條 -->
+                    <div class="absolute bottom-2 left-2 right-2 bg-space-900/90 backdrop-blur-md border border-space-border px-3 py-1.5 rounded-md flex justify-between items-center shadow-md">
+                        <span class="text-xs text-slate-400">目前辨識指令:</span>
+                        <span id="detectedCommand" class="font-mono font-bold text-xs text-slate-300">等待模型啟動...</span>
+                    </div>
+                </div>
+
+                <!-- 自動連發子彈切換開關 -->
+                <div class="bg-space-900/80 border border-space-border rounded-lg p-3 flex items-center justify-between">
+                    <div>
+                        <div class="font-bold text-sm text-slate-200 flex items-center gap-1.5">
+                            <i class="fa-solid fa-bolt text-space-yellow"></i> 自動連發子彈
+                        </div>
+                        <p class="text-[11px] text-slate-400">開啟後將持續向上發射雷射子彈</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="autoFireToggle" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-space-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-space-cyan"></div>
+                    </label>
+                </div>
+
+                <!-- 即時信心分數列表 -->
+                <div>
+                    <div class="text-xs font-bold text-slate-400 mb-2 flex justify-between">
+                        <span>模型類別 (Class)</span>
+                        <span>信心分數 (Confidence)</span>
+                    </div>
+                    <div id="predictionList" class="flex flex-col gap-2">
+                        <div class="text-xs text-slate-500 text-center py-2">讀取模型類別中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 動作映射設定 -->
+            <div class="bg-space-800 border border-space-border rounded-xl p-4 shadow-lg flex flex-col gap-3">
+                <h3 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-space-cyan"></i> 動作對應與模型設定
+                </h3>
+
+                <!-- 自訂 Teachable Machine 模型網址輸入框 -->
+                <div>
+                    <label class="block text-slate-400 text-xs mb-1">🔗 Teachable Machine 模型 URL</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="inputModelUrl" value="https://teachablemachine.withgoogle.com/models/9qGt3_30b/" class="w-full bg-space-900 border border-space-border rounded px-2.5 py-1.5 text-xs text-slate-200 focus:border-space-cyan focus:outline-none font-mono">
+                        <button id="btnReloadModel" class="px-3 py-1.5 bg-space-cyan text-space-900 font-bold text-xs rounded hover:bg-cyan-300 transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer">
+                            <i class="fa-solid fa-rotate"></i> 載入
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-1">例如: https://teachablemachine.withgoogle.com/models/YOUR_MODEL_ID/</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-slate-400 mb-1">👈 左傾類別 (Left)</label>
+                        <select id="selectLeftClass" class="w-full bg-space-900 border border-space-border rounded px-2.5 py-1.5 text-slate-200 focus:border-space-cyan focus:outline-none">
+                            <option value="">載入中...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">👉 右傾類別 (Right)</label>
+                        <select id="selectRightClass" class="w-full bg-space-900 border border-space-border rounded px-2.5 py-1.5 text-slate-200 focus:border-space-cyan focus:outline-none">
+                            <option value="">載入中...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 左右反轉控制選項 -->
+                <div class="bg-space-900/80 border border-space-border rounded-lg p-2.5 flex items-center justify-between text-xs mt-1">
+                    <div class="flex items-center gap-1.5 font-bold text-slate-200">
+                        <i class="fa-solid fa-right-left text-space-pink"></i> 左右方向反轉 (Invert)
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="invertControlsToggle" class="sr-only peer" checked>
+                        <div class="w-9 h-5 bg-space-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-space-pink"></div>
+                    </label>
+                </div>
+
+                <div class="mt-1">
+                    <label class="block text-xs text-slate-400 mb-1">🎯 辨識觸發門檻 (<span id="thresholdVal">50</span>%)</label>
+                    <input type="range" id="thresholdSlider" min="30" max="95" value="50" class="w-full accent-space-cyan bg-space-900 rounded-lg cursor-pointer h-1.5">
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <footer class="border-t border-space-border/40 py-3 text-center text-xs text-slate-500 bg-space-900">
+        太空侵略者 AI 體感互動網頁遊戲 &copy; 2026 - TensorFlow.js Continuous Inference Engine
+    </footer>
+
+    <script>
+        // --- 1. Global Variables & References ---
+        let MODEL_URL = "https://teachablemachine.withgoogle.com/models/9qGt3_30b/";
+        
+        let model, webcam, maxPredictions = 0;
+        let isPoseModel = false;
+        let isModelLoaded = false;
+        let isPredicting = false;
+
+        let predictionResult = { left: false, right: false, topLabel: "靜止", topScore: 0 };
+
+        let leftClassName = "";
+        let rightClassName = "";
+        let confidenceThreshold = 0.50;
+        let invertControls = true;
+
+        // Web Audio Synthesizer
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        // DOM Element Bindings (Declared ONCE globally with Canvas & Context)
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas ? canvas.getContext("2d") : null;
+
+        const scoreDisplay = document.getElementById("scoreDisplay");
+        const highScoreDisplay = document.getElementById("highScoreDisplay");
+        const waveDisplay = document.getElementById("waveDisplay");
+        const livesContainer = document.getElementById("livesContainer");
+        const btnStartPause = document.getElementById("btnStartPause");
+        const btnRestart = document.getElementById("btnRestart");
+        const gameOverlay = document.getElementById("gameOverlay");
+        const overlayTitle = document.getElementById("overlayTitle");
+        const overlaySubtitle = document.getElementById("overlaySubtitle");
+        const btnOverlayAction = document.getElementById("btnOverlayAction");
+
+        const modelStatusTag = document.getElementById("modelStatusTag");
+        const webcamContainer = document.getElementById("webcamContainer");
+        const predictionList = document.getElementById("predictionList");
+        const detectedCommand = document.getElementById("detectedCommand");
+        const selectLeftClass = document.getElementById("selectLeftClass");
+        const selectRightClass = document.getElementById("selectRightClass");
+        const thresholdSlider = document.getElementById("thresholdSlider");
+        const thresholdVal = document.getElementById("thresholdVal");
+        const autoFireToggle = document.getElementById("autoFireToggle");
+        const invertControlsToggle = document.getElementById("invertControlsToggle");
+        const inputModelUrl = document.getElementById("inputModelUrl");
+        const btnReloadModel = document.getElementById("btnReloadModel");
+
+        if (invertControlsToggle) {
+            invertControls = invertControlsToggle.checked;
+            invertControlsToggle.addEventListener("change", (e) => {
+                invertControls = e.target.checked;
             });
-          }
         }
 
-        bunkers.push({ blocks });
-      }
-    }
+        const badgeLeftHint = document.getElementById("badgeLeftHint");
+        const badgeNeutralHint = document.getElementById("badgeNeutralHint");
+        const badgeRightHint = document.getElementById("badgeRightHint");
 
-    /* --- Logic Updates --- */
-    function updateGame(timestamp) {
-      // 1. Move Player (AI Command or Keyboard fallback)
-      let dir = 0;
-      if (currentPredictedDirection === "Left" || keys["ArrowLeft"] || keys["a"]) {
-        dir = -1;
-      } else if (currentPredictedDirection === "Right" || keys["ArrowRight"] || keys["d"]) {
-        dir = 1;
-      }
+        // --- STREAMING_CHUNK:Defining audio helper function... ---
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new AudioCtx();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
 
-      player.x += dir * player.speed;
-      // Clamp inside canvas
-      if (player.x < 10) player.x = 10;
-      if (player.x + player.width > gameCanvas.width - 10) {
-        player.x = gameCanvas.width - 10 - player.width;
-      }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
 
-      // 2. Player Auto-Shooting
-      if (timestamp - player.lastShootTime > player.shootInterval) {
-        playerBullets.push({
-          x: player.x + player.width / 2 - 2,
-          y: player.y,
-          width: 4,
-          height: 12,
-          speed: 8
-        });
-        player.lastShootTime = timestamp;
-      }
+                const now = audioCtx.currentTime;
 
-      // 3. Update Player Bullets
-      for (let i = playerBullets.length - 1; i >= 0; i--) {
-        const b = playerBullets[i];
-        b.y -= b.speed;
-
-        // Offscreen removal
-        if (b.y < -10) {
-          playerBullets.splice(i, 1);
-          continue;
-        }
-
-        // Bullet vs Invaders Collision
-        let bulletHit = false;
-        for (let inv of invaders) {
-          if (inv.alive && isColliding(b, inv)) {
-            inv.alive = false;
-            bulletHit = true;
-            score += (4 - inv.type) * 10; // Row score multiplier
-            updateHudUI();
-            createExplosion(inv.x + inv.width / 2, inv.y + inv.height / 2, "#ff007f");
-            break;
-          }
-        }
-
-        if (bulletHit) {
-          playerBullets.splice(i, 1);
-          continue;
-        }
-
-        // Bullet vs Bunker Blocks Collision
-        for (let bunker of bunkers) {
-          for (let blk of bunker.blocks) {
-            if (blk.hp > 0 && isColliding(b, blk)) {
-              blk.hp--;
-              bulletHit = true;
-              createExplosion(b.x, b.y, "#39ff14", 3);
-              break;
+                if (type === 'shoot') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'explosion') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.linearRampToValueAtTime(30, now + 0.2);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                } else if (type === 'hit') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.linearRampToValueAtTime(80, now + 0.15);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                }
+            } catch (e) {
+                // Ignore audio context autoplay restrictions
             }
-          }
-          if (bulletHit) break;
         }
 
-        if (bulletHit) {
-          playerBullets.splice(i, 1);
-        }
-      }
-
-      // 4. Update Invaders Grid Movement
-      let edgeReached = false;
-      let activeInvaders = invaders.filter(inv => inv.alive);
-
-      if (activeInvaders.length === 0) {
-        // Wave Cleared!
-        wave++;
-        initWave();
-        updateHudUI();
-        return;
-      }
-
-      for (let inv of activeInvaders) {
-        inv.x += invaderDirection * invaderSpeed;
-        if (inv.x <= 15 || inv.x + inv.width >= gameCanvas.width - 15) {
-          edgeReached = true;
+        // --- STREAMING_CHUNK:Defining Teachable Machine loader... ---
+        function withTimeout(promise, ms, errorMessage) {
+            let timeout = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(errorMessage)), ms)
+            );
+            return Promise.race([promise, timeout]);
         }
 
-        // Invader reached player bottom -> Game Over
-        if (inv.y + inv.height >= player.y) {
-          triggerGameOver(false);
-          return;
-        }
-      }
-
-      if (edgeReached) {
-        invaderDirection *= -1;
-        for (let inv of activeInvaders) {
-          inv.y += 12;
-        }
-      }
-
-      // 5. Invader Random Shooting
-      if (Math.random() < 0.02 + wave * 0.005) {
-        const randomInv = activeInvaders[Math.floor(Math.random() * activeInvaders.length)];
-        if (randomInv) {
-          invaderBullets.push({
-            x: randomInv.x + randomInv.width / 2 - 2,
-            y: randomInv.y + randomInv.height,
-            width: 4,
-            height: 10,
-            speed: 4.5
-          });
-        }
-      }
-
-      // 6. Update Invader Bullets
-      for (let i = invaderBullets.length - 1; i >= 0; i--) {
-        const b = invaderBullets[i];
-        b.y += b.speed;
-
-        if (b.y > gameCanvas.height + 10) {
-          invaderBullets.splice(i, 1);
-          continue;
-        }
-
-        // Enemy Bullet vs Player
-        if (isColliding(b, player)) {
-          invaderBullets.splice(i, 1);
-          lives--;
-          updateHudUI();
-          createExplosion(player.x + player.width / 2, player.y + player.height / 2, "#45f3ff", 15);
-
-          if (lives <= 0) {
-            triggerGameOver(false);
-            return;
-          }
-          continue;
-        }
-
-        // Enemy Bullet vs Bunkers
-        let bulletHit = false;
-        for (let bunker of bunkers) {
-          for (let blk of bunker.blocks) {
-            if (blk.hp > 0 && isColliding(b, blk)) {
-              blk.hp--;
-              bulletHit = true;
-              createExplosion(b.x, b.y, "#39ff14", 3);
-              break;
+        async function initTeachableMachine() {
+            // Ensure compatibility between TFJS versions and Teachable Machine Pose
+            if (window.tf) {
+                if (!window.tf.fromPixels && window.tf.browser && window.tf.browser.fromPixels) {
+                    window.tf.fromPixels = window.tf.browser.fromPixels;
+                }
             }
-          }
-          if (bulletHit) break;
+
+            let userUrl = inputModelUrl ? inputModelUrl.value.trim() : MODEL_URL;
+            if (!userUrl.endsWith("/")) userUrl += "/";
+            MODEL_URL = userUrl;
+
+            detectedCommand.innerText = "下載 AI 模型中...";
+            modelStatusTag.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> 下載 AI 模型中...`;
+
+            try {
+                if (webcam && typeof webcam.stop === 'function') {
+                    try { webcam.stop(); } catch(e){}
+                }
+
+                const modelURL = MODEL_URL + "model.json";
+                const metadataURL = MODEL_URL + "metadata.json";
+
+                // 1. 先檢驗 metadata 判斷是否為 Pose (姿態) 模型
+                let isPose = false;
+                try {
+                    const metaReq = await withTimeout(fetch(metadataURL), 4000, "Metadata 超時");
+                    if (metaReq.ok) {
+                        const metaJson = await metaReq.json();
+                        const pkg = (metaJson.package || metaJson.packageName || metaJson.modelName || "").toLowerCase();
+                        if (pkg.includes("pose")) {
+                            isPose = true;
+                        }
+                    }
+                } catch(e) {
+                    console.log("Metadata 預先檢查跳過：", e);
+                }
+
+                // 2. 依據判定結果正確載入 tmPose 或 tmImage
+                if (isPose) {
+                    model = await withTimeout(tmPose.load(modelURL, metadataURL), 10000, "Pose 模型下載超時");
+                    isPoseModel = true;
+                } else {
+                    try {
+                        model = await withTimeout(tmImage.load(modelURL, metadataURL), 10000, "Image 模型下載超時");
+                        isPoseModel = false;
+                    } catch (e) {
+                        console.log("嘗試切換為 Pose 模型...", e);
+                        model = await withTimeout(tmPose.load(modelURL, metadataURL), 10000, "模型下載失敗");
+                        isPoseModel = true;
+                    }
+                }
+
+                maxPredictions = model.getTotalClasses();
+                setupClassOptions();
+
+                isModelLoaded = true;
+                btnStartPause.disabled = false;
+
+                // Stage 2: Initialize Webcam
+                await initWebcam();
+
+            } catch (err) {
+                console.warn("AI 模型下載或載入異常：", err);
+                showFallbackKeyboardMode(err.message || "模型載入失敗");
+            }
         }
 
-        if (bulletHit) {
-          invaderBullets.splice(i, 1);
+        async function initWebcam() {
+            detectedCommand.innerText = "要求開啟攝影機...";
+            modelStatusTag.innerHTML = `<i class="fa-solid fa-camera animate-pulse"></i> 正在開啟攝影機...`;
+
+            try {
+                const flip = true; 
+                if (isPoseModel) {
+                    webcam = new tmPose.Webcam(320, 240, flip);
+                } else {
+                    webcam = new tmImage.Webcam(320, 240, flip);
+                }
+                
+                // Modern browsers require camera access to be triggered directly or granted via permission prompt
+                await withTimeout(webcam.setup({ requestPage: false }), 6000, "攝影機權限受限或回應超時");
+                await webcam.play();
+                
+                webcamContainer.innerHTML = "";
+                webcamContainer.appendChild(webcam.canvas);
+                webcam.canvas.classList.add("w-full", "h-full", "object-cover");
+
+                modelStatusTag.className = "text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5";
+                modelStatusTag.innerHTML = `<i class="fa-solid fa-circle-check"></i> 體感連續偵測中`;
+
+                startContinuousDetection();
+
+            } catch (webcamErr) {
+                console.warn("攝影機啟動受限：", webcamErr);
+                showFallbackKeyboardMode("攝影機存取受限或未允許權限");
+            }
         }
-      }
 
-      // 7. Update Explosion Particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.alpha -= 0.03;
-        if (p.alpha <= 0) {
-          particles.splice(i, 1);
+        if (btnReloadModel) {
+            btnReloadModel.addEventListener("click", () => {
+                initTeachableMachine();
+            });
         }
-      }
-    }
 
-    // Collision Box Checker
-    function isColliding(rect1, rect2) {
-      return (
-        rect1.x < rect2.x + rect2.width &&
-        rect1.x + rect1.width > rect2.x &&
-        rect1.y < rect2.y + rect2.height &&
-        rect1.y + rect1.height > rect2.y
-      );
-    }
+        function showFallbackKeyboardMode(reason = "") {
+            modelStatusTag.className = "text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5";
+            modelStatusTag.innerHTML = `<i class="fa-solid fa-keyboard"></i> 已啟用鍵盤模式`;
 
-    // Particle Explosion FX
-    function createExplosion(x, y, color, count = 8) {
-      for (let i = 0; i < count; i++) {
-        particles.push({
-          x: x,
-          y: y,
-          vx: (Math.random() - 0.5) * 6,
-          vy: (Math.random() - 0.5) * 6,
-          radius: Math.random() * 2.5 + 1,
-          color: color,
-          alpha: 1.0
+            webcamContainer.innerHTML = `
+                <div class="p-4 text-center flex flex-col items-center justify-center gap-2">
+                    <i class="fa-solid fa-video-slash text-amber-400 text-2xl mb-1"></i>
+                    <div class="text-xs text-slate-200 font-bold">${reason}</div>
+                    <div class="text-[11px] text-slate-400 max-w-xs leading-relaxed">
+                        已自動切換為 <span class="text-space-cyan font-bold">鍵盤操控模式</span>！<br>
+                        使用 <kbd class="px-1 bg-space-700 rounded text-slate-200">A</kbd>/<kbd class="px-1 bg-space-700 rounded text-slate-200">D</kbd> 或 <kbd class="px-1 bg-space-700 rounded text-slate-200">←</kbd>/<kbd class="px-1 bg-space-700 rounded text-slate-200">→</kbd> 控制左右，<kbd class="px-1 bg-space-700 rounded text-slate-200">Space</kbd> 射擊。
+                    </div>
+                    <button onclick="requestCameraAccess()" class="mt-2 px-3 py-1.5 bg-space-cyan hover:bg-cyan-300 text-space-900 font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-md cursor-pointer">
+                        <i class="fa-solid fa-camera"></i> 點擊授權與啟動攝影機
+                    </button>
+                </div>
+            `;
+
+            detectedCommand.innerText = "鍵盤控制備援中";
+            detectedCommand.className = "font-mono font-bold text-xs text-space-yellow";
+
+            btnStartPause.disabled = false;
+        }
+
+        async function requestCameraAccess() {
+            if (!isModelLoaded) {
+                await initTeachableMachine();
+            } else {
+                await initWebcam();
+            }
+        }
+
+        // --- STREAMING_CHUNK:Setting up class mapping options... ---
+        function setupClassOptions() {
+            selectLeftClass.innerHTML = '<option value="">(無)</option>';
+            selectRightClass.innerHTML = '<option value="">(無)</option>';
+            predictionList.innerHTML = "";
+
+            const labels = model.getClassLabels();
+
+            leftClassName = "";
+            rightClassName = "";
+
+            // Auto-detect class labels based on keywords
+            for (let i = 0; i < maxPredictions; i++) {
+                const label = labels[i];
+                const lower = label.toLowerCase();
+                if (lower.includes("left") || lower.includes("左")) leftClassName = label;
+                if (lower.includes("right") || lower.includes("右")) rightClassName = label;
+            }
+
+            // Fallback if no matching keyword names found
+            if (!leftClassName && maxPredictions > 0) leftClassName = labels[0];
+            if (!rightClassName && maxPredictions > 1) rightClassName = labels[1];
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const label = labels[i];
+
+                selectLeftClass.add(new Option(label, label));
+                selectRightClass.add(new Option(label, label));
+
+                let tagHtml = "";
+                if (label === leftClassName) tagHtml = `<span class="text-[10px] px-1.5 py-0.5 rounded bg-space-cyan/20 text-space-cyan border border-space-cyan/40">👈 左傾</span>`;
+                if (label === rightClassName) tagHtml = `<span class="text-[10px] px-1.5 py-0.5 rounded bg-space-pink/20 text-space-pink border border-space-pink/40">👉 右傾</span>`;
+
+                const item = document.createElement("div");
+                item.className = "bg-space-900/80 p-2 rounded border border-space-border/60 text-xs flex flex-col gap-1";
+                item.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="font-semibold text-slate-300 flex items-center gap-1.5">${label} ${tagHtml}</span>
+                        <span class="font-mono text-space-cyan" id="label-score-${i}">0%</span>
+                    </div>
+                    <div class="w-full bg-space-700 h-1.5 rounded-full overflow-hidden">
+                        <div id="label-bar-${i}" class="bg-space-cyan h-full w-0 transition-all duration-75"></div>
+                    </div>
+                `;
+                predictionList.appendChild(item);
+            }
+
+            if (leftClassName) selectLeftClass.value = leftClassName;
+            if (rightClassName) selectRightClass.value = rightClassName;
+        }
+
+        // --- STREAMING_CHUNK:Running prediction loop and UI updates... ---
+        function startContinuousDetection() {
+            async function predictLoop() {
+                if (webcam && webcam.canvas && webcam.canvas.width > 0) {
+                    webcam.update();
+
+                    if (!isPredicting) {
+                        isPredicting = true;
+                        try {
+                            await runPrediction();
+                        } catch (e) {
+                            console.warn("推論跳過中：", e);
+                        } finally {
+                            isPredicting = false;
+                        }
+                    }
+                }
+                requestAnimationFrame(predictLoop);
+            }
+            requestAnimationFrame(predictLoop);
+        }
+
+        async function runPrediction() {
+            let predictions;
+            if (isPoseModel) {
+                const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+                predictions = await model.predict(posenetOutput);
+            } else {
+                predictions = await model.predict(webcam.canvas);
+            }
+
+            let highestScore = 0;
+            let highestLabel = "靜止";
+
+            predictionResult.left = false;
+            predictionResult.right = false;
+
+            let leftScore = 0;
+            let rightScore = 0;
+
+            const selectedLeft = selectLeftClass.value;
+            const selectedRight = selectRightClass.value;
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const label = predictions[i].className;
+                const score = predictions[i].probability;
+                const scorePercent = Math.round(score * 100);
+
+                const bar = document.getElementById(`label-bar-${i}`);
+                const scoreText = document.getElementById(`label-score-${i}`);
+                if (bar) bar.style.width = scorePercent + "%";
+                if (scoreText) scoreText.innerText = scorePercent + "%";
+
+                if (label === selectedLeft) leftScore = score;
+                if (label === selectedRight) rightScore = score;
+
+                if (score > highestScore) {
+                    highestScore = score;
+                    highestLabel = label;
+                }
+            }
+
+            predictionResult.topLabel = highestLabel;
+            predictionResult.topScore = highestScore;
+
+            badgeLeftHint.className = "py-2 px-1 rounded-lg bg-space-900 border border-space-cyan/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5 opacity-60";
+            badgeNeutralHint.className = "py-2 px-1 rounded-lg bg-space-900 border border-slate-600/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5 opacity-60";
+            badgeRightHint.className = "py-2 px-1 rounded-lg bg-space-900 border border-space-pink/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5 opacity-60";
+
+            // Direct trigger based on leftScore and rightScore vs threshold
+            if (leftScore >= confidenceThreshold && leftScore > rightScore && selectedLeft !== "") {
+                predictionResult.left = true;
+                detectedCommand.innerText = `👈 身體左傾 (${Math.round(leftScore * 100)}%)`;
+                detectedCommand.className = "font-mono font-bold text-xs text-space-cyan neon-text-cyan";
+
+                badgeLeftHint.className = "py-2 px-1 rounded-lg bg-space-cyan/20 border-2 border-space-cyan text-space-cyan font-bold scale-105 neon-glow-cyan transition-all flex flex-col items-center justify-center gap-0.5 opacity-100";
+            } else if (rightScore >= confidenceThreshold && rightScore > leftScore && selectedRight !== "") {
+                predictionResult.right = true;
+                detectedCommand.innerText = `👉 身體右傾 (${Math.round(rightScore * 100)}%)`;
+                detectedCommand.className = "font-mono font-bold text-xs text-space-pink neon-text-pink";
+
+                badgeRightHint.className = "py-2 px-1 rounded-lg bg-space-pink/20 border-2 border-space-pink text-space-pink font-bold scale-105 neon-glow-pink transition-all flex flex-col items-center justify-center gap-0.5 opacity-100";
+            } else {
+                detectedCommand.innerText = `🧍 保持直立 (${Math.round(highestScore * 100)}%)`;
+                detectedCommand.className = "font-mono font-bold text-xs text-slate-200";
+
+                badgeNeutralHint.className = "py-2 px-1 rounded-lg bg-slate-700/40 border-2 border-slate-300 text-slate-100 font-bold transition-all flex flex-col items-center justify-center gap-0.5 opacity-100";
+            }
+        }
+
+        selectLeftClass.addEventListener("change", (e) => leftClassName = e.target.value);
+        selectRightClass.addEventListener("change", (e) => rightClassName = e.target.value);
+        thresholdSlider.addEventListener("input", (e) => {
+            confidenceThreshold = e.target.value / 100;
+            thresholdVal.innerText = e.target.value;
         });
-      }
-    }
 
-    /* --- Render Functions --- */
-    function renderGame() {
-      // Clear Screen
-      ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+        // --- STREAMING_CHUNK:Running prediction loop and UI updates... ---
+        let consecutivePredictionErrors = 0;
 
-      // Draw Player Shuttle (Arcade Style Vector)
-      ctx.fillStyle = "#45f3ff";
-      ctx.shadowColor = "#45f3ff";
-      ctx.shadowBlur = 10;
-      
-      // Cannon tip
-      ctx.fillRect(player.x + player.width / 2 - 3, player.y - 6, 6, 8);
-      // Main Body
-      ctx.fillRect(player.x + 4, player.y + 4, player.width - 8, player.height - 4);
-      // Wings
-      ctx.fillRect(player.x, player.y + 12, player.width, 8);
+        function startContinuousDetection() {
+            async function predictLoop() {
+                if (webcam && webcam.canvas) {
+                    try {
+                        webcam.update();
+                    } catch(e){}
 
-      // Draw Player Bullets
-      ctx.fillStyle = "#ffe600";
-      ctx.shadowColor = "#ffe600";
-      ctx.shadowBlur = 8;
-      for (let b of playerBullets) {
-        ctx.fillRect(b.x, b.y, b.width, b.height);
-      }
-
-      // Draw Invaders
-      const invaderColors = ["#ff007f", "#bf00ff", "#00f0ff", "#39ff14"];
-      for (let inv of invaders) {
-        if (!inv.alive) continue;
-
-        ctx.fillStyle = invaderColors[inv.type % invaderColors.length];
-        ctx.shadowColor = ctx.fillStyle;
-        ctx.shadowBlur = 8;
-
-        // Alien Pixel Shape Rendering
-        const x = inv.x;
-        const y = inv.y;
-        const w = inv.width;
-        const h = inv.height;
-
-        ctx.fillRect(x + 8, y, w - 16, h);
-        ctx.fillRect(x, y + 6, w, h - 12);
-        // Antennas & Feet
-        ctx.fillRect(x + 4, y - 4, 4, 4);
-        ctx.fillRect(x + w - 8, y - 4, 4, 4);
-        ctx.fillRect(x + 2, y + h, 6, 4);
-        ctx.fillRect(x + w - 8, y + h, 6, 4);
-      }
-
-      // Draw Invader Bullets
-      ctx.fillStyle = "#ff0055";
-      ctx.shadowColor = "#ff0055";
-      ctx.shadowBlur = 8;
-      for (let b of invaderBullets) {
-        ctx.fillRect(b.x, b.y, b.width, b.height);
-      }
-
-      // Draw Bunker Obstacles
-      ctx.shadowBlur = 0; // Turn off heavy shadow for blocks
-      for (let bunker of bunkers) {
-        for (let blk of bunker.blocks) {
-          if (blk.hp <= 0) continue;
-
-          if (blk.hp === 3) ctx.fillStyle = "#39ff14";
-          else if (blk.hp === 2) ctx.fillStyle = "#20b00d";
-          else ctx.fillStyle = "#116005";
-
-          ctx.fillRect(blk.x, blk.y, blk.width, blk.height);
+                    if (!isPredicting && isModelLoaded) {
+                        isPredicting = true;
+                        try {
+                            await runPrediction();
+                        } catch (e) {
+                            // Error captured inside runPrediction
+                        } finally {
+                            isPredicting = false;
+                        }
+                    }
+                }
+                requestAnimationFrame(predictLoop);
+            }
+            requestAnimationFrame(predictLoop);
         }
-      }
 
-      // Draw Explosion Particles
-      for (let p of particles) {
-        ctx.save();
-        ctx.globalAlpha = p.alpha;
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
+        async function runPrediction() {
+            if (!model || !webcam || !webcam.canvas) return;
 
-      // Reset Shadow Blur
-      ctx.shadowBlur = 0;
-    }
+            let predictions;
+            try {
+                if (isPoseModel) {
+                    const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+                    predictions = await model.predict(posenetOutput);
+                } else {
+                    predictions = await model.predict(webcam.canvas);
+                }
+                consecutivePredictionErrors = 0;
+            } catch (err) {
+                consecutivePredictionErrors++;
+                console.error("推論失敗：", err);
+                if (consecutivePredictionErrors > 3) {
+                    detectedCommand.innerText = `⚠️ 推論異常: ${err.message || err}`;
+                    detectedCommand.className = "font-mono font-bold text-xs text-rose-400 animate-pulse";
+                }
+                throw err;
+            }
 
-    // HUD Display Update
-    function updateHudUI() {
-      scoreDisplay.innerText = score.toString().padStart(5, '0');
-      waveDisplay.innerText = wave;
+            let highestScore = 0;
+            let highestLabel = "靜止";
 
-      // Update hearts/lives
-      livesDisplay.innerHTML = "";
-      for (let i = 0; i < lives; i++) {
-        livesDisplay.innerHTML += '<i class="fa-solid fa-shuttle-space text-cyan-400"></i>';
-      }
-    }
+            predictionResult.left = false;
+            predictionResult.right = false;
 
-    // Trigger Game Over or Win Panel
-    function triggerGameOver(isWin) {
-      gameState = isWin ? "WIN" : "GAMEOVER";
-      
-      overlayTitle.innerText = isWin ? "MISSION ACCOMPLISHED!" : "GAME OVER";
-      overlayTitle.className = isWin 
-        ? "font-arcade text-xl md:text-2xl text-emerald-400 leading-relaxed" 
-        : "font-arcade text-xl md:text-2xl text-rose-500 leading-relaxed";
+            let leftScore = 0;
+            let rightScore = 0;
 
-      overlayDesc.innerHTML = `
-        遊戲結束！最終得分: <span class="text-yellow-400 font-arcade font-bold">${score}</span><br>
-        清除波數 Wave: <span class="text-cyan-400 font-bold">${wave}</span>
-      `;
+            const selectedLeft = selectLeftClass.value;
+            const selectedRight = selectRightClass.value;
 
-      startBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 重新開始遊戲';
-      gameOverlay.classList.remove("hidden");
-    }
+            for (let i = 0; i < maxPredictions; i++) {
+                const label = predictions[i].className;
+                const score = predictions[i].probability;
+                const scorePercent = Math.round(score * 100);
 
-    /* ===================================================================
-     * 4. EVENT LISTENERS
-     * =================================================================== */
-    startBtn.addEventListener("click", async () => {
-      // Initialize AI model & Webcam on first click
-      if (!isAiRunning) {
-        await initTeachableMachine();
-      }
-      startNewGame();
-    });
+                const bar = document.getElementById(`label-bar-${i}`);
+                const scoreText = document.getElementById(`label-score-${i}`);
+                if (bar) bar.style.width = scorePercent + "%";
+                if (scoreText) scoreText.innerText = scorePercent + "%";
 
-    // Auto-fit canvas resolution on window load
-    window.addEventListener("load", () => {
-      renderGame(); // Draw initial static canvas preview
-    });
-  </script>
+                if (label === selectedLeft) leftScore = score;
+                if (label === selectedRight) rightScore = score;
+
+                if (score > highestScore) {
+                    highestScore = score;
+                    highestLabel = label;
+                }
+            }
+
+            predictionResult.topLabel = highestLabel;
+            predictionResult.topScore = highestScore;
+
+            badgeLeftHint.className = "py-2 px-1 rounded-lg bg-space-900 border border-space-cyan/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5 opacity-60";
+            badgeNeutralHint.className = "py-2 px-1 rounded-lg bg-space-900 border border-slate-600/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5 opacity-60";
+            badgeRightHint.className = "py-2 px-1 rounded-lg bg-space-900 border border-space-pink/30 text-slate-400 transition-all flex flex-col items-center justify-center gap-0.5 opacity-60";
+
+            // Direct trigger based on leftScore and rightScore vs threshold
+            if (leftScore >= confidenceThreshold && leftScore > rightScore && selectedLeft !== "") {
+                predictionResult.left = true;
+                detectedCommand.innerText = `👈 身體左傾 (${Math.round(leftScore * 100)}%)`;
+                detectedCommand.className = "font-mono font-bold text-xs text-space-cyan neon-text-cyan";
+
+                badgeLeftHint.className = "py-2 px-1 rounded-lg bg-space-cyan/20 border-2 border-space-cyan text-space-cyan font-bold scale-105 neon-glow-cyan transition-all flex flex-col items-center justify-center gap-0.5 opacity-100";
+            } else if (rightScore >= confidenceThreshold && rightScore > leftScore && selectedRight !== "") {
+                predictionResult.right = true;
+                detectedCommand.innerText = `👉 身體右傾 (${Math.round(rightScore * 100)}%)`;
+                detectedCommand.className = "font-mono font-bold text-xs text-space-pink neon-text-pink";
+
+                badgeRightHint.className = "py-2 px-1 rounded-lg bg-space-pink/20 border-2 border-space-pink text-space-pink font-bold scale-105 neon-glow-pink transition-all flex flex-col items-center justify-center gap-0.5 opacity-100";
+            } else {
+                detectedCommand.innerText = `🧍 保持直立 (${Math.round(highestScore * 100)}%)`;
+                detectedCommand.className = "font-mono font-bold text-xs text-slate-200";
+
+                badgeNeutralHint.className = "py-2 px-1 rounded-lg bg-slate-700/40 border-2 border-slate-300 text-slate-100 font-bold transition-all flex flex-col items-center justify-center gap-0.5 opacity-100";
+            }
+        }
+
+        class Bullet {
+            constructor(x, y, speedY, color, isPlayer) {
+                this.x = x;
+                this.y = y;
+                this.width = 4;
+                this.height = 12;
+                this.speedY = speedY;
+                this.color = color;
+                this.isPlayer = isPlayer;
+                this.markedForDeletion = false;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 8;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.restore();
+            }
+
+            update() {
+                this.y += this.speedY;
+                if (this.y < -20 || this.y > canvas.height + 20) {
+                    this.markedForDeletion = true;
+                }
+            }
+        }
+
+        class Enemy {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.width = 32;
+                this.height = 24;
+                this.type = type;
+                this.markedForDeletion = false;
+            }
+
+            draw() {
+                ctx.save();
+                let color = "#FF007A";
+                if (this.type === 1) color = "#FFE600";
+                if (this.type === 2) color = "#A855F7";
+
+                ctx.fillStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 6;
+
+                ctx.fillRect(this.x + 6, this.y, this.width - 12, this.height);
+                ctx.fillRect(this.x, this.y + 6, this.width, this.height - 12);
+
+                ctx.fillStyle = "#0A0C1B";
+                ctx.fillRect(this.x + 6, this.y + 8, 5, 5);
+                ctx.fillRect(this.x + this.width - 11, this.y + 8, 5, 5);
+
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = (Math.random() - 0.5) * 6;
+                this.radius = Math.random() * 3 + 1;
+                this.color = color;
+                this.alpha = 1;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= 0.035;
+            }
+        }
+
+        class Player {
+            constructor() {
+                this.width = 48;
+                this.height = 24;
+                this.x = canvas ? (canvas.width - this.width) / 2 : 376;
+                this.y = canvas ? canvas.height - 50 : 550;
+                this.speed = 6;
+                this.cooldown = 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.fillStyle = "#00F0FF";
+                ctx.shadowColor = "#00F0FF";
+                ctx.shadowBlur = 10;
+
+                ctx.fillRect(this.x + 18, this.y, 12, 6);
+                ctx.fillRect(this.x + 12, this.y + 6, 24, 6);
+                ctx.fillRect(this.x, this.y + 12, this.width, 12);
+                ctx.fillStyle = "#FF007A";
+                ctx.fillRect(this.x + 4, this.y + 18, 6, 6);
+                ctx.fillRect(this.x + this.width - 10, this.y + 18, 6, 6);
+
+                ctx.restore();
+            }
+
+            update() {
+                if (this.cooldown > 0) this.cooldown--;
+
+                let goLeft = predictionResult.left;
+                let goRight = predictionResult.right;
+
+                if (invertControls) {
+                    const temp = goLeft;
+                    goLeft = goRight;
+                    goRight = temp;
+                }
+
+                if (goLeft || keys["ArrowLeft"] || keys["a"] || keys["A"]) {
+                    this.x -= this.speed;
+                }
+                if (goRight || keys["ArrowRight"] || keys["d"] || keys["D"]) {
+                    this.x += this.speed;
+                }
+
+                if (this.x < 10) this.x = 10;
+                if (this.x > canvas.width - this.width - 10) this.x = canvas.width - this.width - 10;
+            }
+
+            shoot() {
+                if (this.cooldown <= 0) {
+                    bullets.push(new Bullet(this.x + this.width / 2 - 2, this.y - 10, -8, "#00F0FF", true));
+                    playSound('shoot');
+                    this.cooldown = 12;
+                }
+            }
+        }
+
+        class Bunker {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 64;
+                this.height = 40;
+                this.rows = 5;
+                this.cols = 8;
+                this.blockWidth = 8;
+                this.blockHeight = 8;
+                this.blocks = [];
+                for (let r = 0; r < this.rows; r++) {
+                    for (let c = 0; c < this.cols; c++) {
+                        if (r >= 3 && (c === 3 || c === 4)) continue;
+                        this.blocks.push({
+                            x: this.x + c * this.blockWidth,
+                            y: this.y + r * this.blockHeight,
+                            alive: true
+                        });
+                    }
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.fillStyle = "#00FF66";
+                ctx.shadowColor = "#00FF66";
+                ctx.shadowBlur = 4;
+                this.blocks.forEach(b => {
+                    if (b.alive) {
+                        ctx.fillRect(b.x, b.y, this.blockWidth - 1, this.blockHeight - 1);
+                    }
+                });
+                ctx.restore();
+            }
+
+            hit(bulletX, bulletY) {
+                let hit = false;
+                this.blocks.forEach(b => {
+                    if (b.alive && bulletX >= b.x && bulletX <= b.x + this.blockWidth &&
+                        bulletY >= b.y && bulletY <= b.y + this.blockHeight) {
+                        b.alive = false;
+                        hit = true;
+                    }
+                });
+                return hit;
+            }
+        }
+
+        // Game State & Entity Variables
+        let gameState = "IDLE";
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem("invaders_highscore")) || 0;
+        let wave = 1;
+        let lives = 3;
+        let autoShootTimer = 0;
+        let player = new Player();
+
+        let bullets = [];
+        let enemies = [];
+        let particles = [];
+        let bunkers = [];
+        let enemyDirection = 1;
+        let enemyMoveTimer = 0;
+        let enemyMoveInterval = 30;
+
+        const keys = {};
+        window.addEventListener("keydown", (e) => {
+            keys[e.key] = true;
+            if (e.key === " " || e.key === "Spacebar") {
+                e.preventDefault();
+                if (gameState === "PLAYING" && player) player.shoot();
+            }
+            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener("keyup", (e) => {
+            keys[e.key] = false;
+        });
+
+        const stars = Array.from({ length: 40 }, () => ({
+            x: Math.random() * (canvas ? canvas.width : 800),
+            y: Math.random() * (canvas ? canvas.height : 600),
+            size: Math.random() * 1.8,
+            alpha: Math.random()
+        }));
+
+        function spawnEnemies() {
+            enemies = [];
+            const rows = 4;
+            const cols = 8;
+            const spacingX = 52;
+            const spacingY = 40;
+            const offsetX = (canvas.width - (cols * spacingX)) / 2;
+            const offsetY = 60;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const type = r % 3;
+                    enemies.push(new Enemy(offsetX + c * spacingX, offsetY + r * spacingY, type));
+                }
+            }
+            enemyMoveInterval = Math.max(8, 32 - wave * 3);
+        }
+
+        function createBunkers() {
+            bunkers = [];
+            const count = 4;
+            const spacing = canvas.width / (count + 1);
+            for (let i = 1; i <= count; i++) {
+                bunkers.push(new Bunker(spacing * i - 32, canvas.height - 120));
+            }
+        }
+
+        function createExplosion(x, y, color, count = 12) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function updateHUD() {
+            scoreDisplay.innerText = String(score).padStart(5, '0');
+            highScoreDisplay.innerText = String(highScore).padStart(5, '0');
+            waveDisplay.innerText = wave;
+
+            livesContainer.innerHTML = "";
+            for (let i = 0; i < lives; i++) {
+                livesContainer.innerHTML += `<i class="fa-solid fa-shuttle-space text-space-pink text-lg"></i>`;
+            }
+        }
+
+        // --- STREAMING_CHUNK:Executing main render loop... ---
+        function gameLoop() {
+            if (gameState === "PLAYING") {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                drawStars();
+
+                player.update();
+                player.draw();
+
+                bunkers.forEach(bunker => bunker.draw());
+
+                if (autoFireToggle.checked) {
+                    autoShootTimer++;
+                    if (autoShootTimer % 12 === 0) {
+                        player.shoot();
+                    }
+                }
+
+                bullets.forEach(bullet => {
+                    bullet.update();
+                    bullet.draw();
+                });
+
+                enemyMoveTimer++;
+                if (enemyMoveTimer >= enemyMoveInterval) {
+                    enemyMoveTimer = 0;
+                    let hitEdge = false;
+
+                    enemies.forEach(enemy => {
+                        enemy.x += enemyDirection * 12;
+                        if (enemy.x <= 15 || enemy.x + enemy.width >= canvas.width - 15) {
+                            hitEdge = true;
+                        }
+                    });
+
+                    if (hitEdge) {
+                        enemyDirection *= -1;
+                        enemies.forEach(enemy => {
+                            enemy.y += 18;
+                            if (enemy.y + enemy.height >= player.y) {
+                                triggerGameOver();
+                            }
+                        });
+                    }
+
+                    if (enemies.length > 0 && Math.random() < 0.35) {
+                        const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
+                        bullets.push(new Bullet(randomEnemy.x + randomEnemy.width / 2, randomEnemy.y + randomEnemy.height, 4 + wave * 0.5, "#FF007A", false));
+                    }
+                }
+
+                enemies.forEach(enemy => enemy.draw());
+
+                // Bullet collisions with bunkers
+                bullets.forEach(bullet => {
+                    bunkers.forEach(bunker => {
+                        if (!bullet.markedForDeletion &&
+                            bullet.x > bunker.x && bullet.x < bunker.x + bunker.width &&
+                            bullet.y > bunker.y && bullet.y < bunker.y + bunker.height) {
+                            
+                            const hit = bunker.hit(bullet.x, bullet.y);
+                            if (hit) {
+                                bullet.markedForDeletion = true;
+                                createExplosion(bullet.x, bullet.y, "#00FF66", 5);
+                            }
+                        }
+                    });
+                });
+
+                // Bullet collisions with player and enemies
+                bullets.forEach(bullet => {
+                    if (bullet.isPlayer) {
+                        enemies.forEach(enemy => {
+                            if (!bullet.markedForDeletion && !enemy.markedForDeletion &&
+                                bullet.x < enemy.x + enemy.width &&
+                                bullet.x + bullet.width > enemy.x &&
+                                bullet.y < enemy.y + enemy.height &&
+                                bullet.y + bullet.height > enemy.y) {
+                                
+                                bullet.markedForDeletion = true;
+                                enemy.markedForDeletion = true;
+                                createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, "#FF007A");
+                                playSound('explosion');
+                                score += (3 - enemy.type) * 100;
+                                if (score > highScore) {
+                                    highScore = score;
+                                    localStorage.setItem("invaders_highscore", highScore);
+                                }
+                                updateHUD();
+                            }
+                        });
+                    } else {
+                        if (!bullet.markedForDeletion &&
+                            bullet.x < player.x + player.width &&
+                            bullet.x + bullet.width > player.x &&
+                            bullet.y < player.y + player.height &&
+                            bullet.y + bullet.height > player.y) {
+                            
+                            bullet.markedForDeletion = true;
+                            createExplosion(player.x + player.width / 2, player.y + player.height / 2, "#00F0FF", 20);
+                            playSound('hit');
+                            lives--;
+                            updateHUD();
+
+                            if (lives <= 0) {
+                                triggerGameOver();
+                            }
+                        }
+                    }
+                });
+
+                bullets = bullets.filter(b => !b.markedForDeletion);
+                enemies = enemies.filter(e => !e.markedForDeletion);
+
+                particles.forEach((p, idx) => {
+                    p.update();
+                    p.draw();
+                    if (p.alpha <= 0) particles.splice(idx, 1);
+                });
+
+                if (enemies.length === 0) {
+                    wave++;
+                    updateHUD();
+                    spawnEnemies();
+                    createBunkers();
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function drawStars() {
+            ctx.save();
+            stars.forEach(s => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+                ctx.fillRect(s.x, s.y, s.size, s.size);
+            });
+            ctx.restore();
+        }
+
+        // --- STREAMING_CHUNK:Binding game controls and lifecycle listeners... ---
+        function startGame() {
+            score = 0;
+            lives = 3;
+            wave = 1;
+            bullets = [];
+            particles = [];
+            player = new Player();
+            updateHUD();
+            spawnEnemies();
+            createBunkers();
+            
+            try {
+                if (!audioCtx) audioCtx = new AudioCtx();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            } catch(e){}
+
+            if (isModelLoaded) {
+                runPrediction().catch(e => console.warn("即時啟動辨識警告:", e));
+            }
+            
+            gameState = "PLAYING";
+            gameOverlay.classList.add("hidden");
+            btnStartPause.innerHTML = `<i class="fa-solid fa-pause"></i> <span>暫停遊戲</span>`;
+        }
+
+        function pauseGame() {
+            gameState = "PAUSED";
+            btnStartPause.innerHTML = `<i class="fa-solid fa-play"></i> <span>繼續遊戲</span>`;
+            overlayTitle.innerText = "遊戲已暫停";
+            overlaySubtitle.innerText = "點擊下方按鈕繼續戰鬥";
+            btnOverlayAction.innerText = "繼續遊戲";
+            gameOverlay.classList.remove("hidden");
+        }
+
+        function toggleStartPause() {
+            if (gameState === "PLAYING") {
+                pauseGame();
+            } else if (gameState === "PAUSED") {
+                gameState = "PLAYING";
+                gameOverlay.classList.add("hidden");
+                btnStartPause.innerHTML = `<i class="fa-solid fa-pause"></i> <span>暫停遊戲</span>`;
+            } else {
+                startGame();
+            }
+        }
+
+        function triggerGameOver() {
+            gameState = "GAMEOVER";
+            btnStartPause.innerHTML = `<i class="fa-solid fa-rotate-right"></i> <span>重新開始</span>`;
+            overlayTitle.innerText = "GAME OVER";
+            overlaySubtitle.innerHTML = `戰鬥結束！<br>最終得分：<span class="text-space-cyan font-bold">${score}</span> 波次：<span class="text-space-pink font-bold">${wave}</span>`;
+            btnOverlayAction.innerText = "再試一次";
+            gameOverlay.classList.remove("hidden");
+        }
+
+        btnStartPause.addEventListener("click", toggleStartPause);
+        btnRestart.addEventListener("click", () => {
+            startGame();
+        });
+        btnOverlayAction.addEventListener("click", () => {
+            if (gameState === "GAMEOVER" || gameState === "IDLE") {
+                startGame();
+            } else if (gameState === "PAUSED") {
+                gameState = "PLAYING";
+                gameOverlay.classList.add("hidden");
+                btnStartPause.innerHTML = `<i class="fa-solid fa-pause"></i> <span>暫停遊戲</span>`;
+            }
+        });
+
+        window.addEventListener("load", () => {
+            initTeachableMachine();
+            gameLoop();
+        });
+    </script>
 </body>
 </html>
